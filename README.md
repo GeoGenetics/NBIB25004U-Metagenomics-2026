@@ -2,9 +2,9 @@
 
 📚 Course materials
 
-All course instructions for practical sessions, workflows, and resources are available in the wiki:
+All course instructions for practical sessions, workflows, and resources are available in the Wiki:
 
-👉 NBIB25004U-Metagenomics-2026 wiki (https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki)
+👉 NBIB25004U-Metagenomics-2026/wiki (https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki)
 
 💻 How to use this repository
 	•	Use the wiki as your main reference during the course

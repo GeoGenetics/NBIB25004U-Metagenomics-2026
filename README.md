@@ -6,11 +6,6 @@ All course instructions for practical sessions, workflows, and resources are ava
 
 👉 [NBIB25004U-Metagenomics-2026/Wiki](https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki)
 
----
-
-## 💻 How to use this repository
-
-- Use the wiki as your main reference during the course
 
 ---
 

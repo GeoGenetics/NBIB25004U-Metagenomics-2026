@@ -14,7 +14,8 @@ OUT_DIR="/maps/projects/course_1/scratch/<group#>/<group-project-group-#>/08_gtd
 DB="/maps/projects/course_1/data/gtdb232/release232"
 
 # ---- setup for GTDB-Tk ----
-export PATH=/opt/shared_software/shared_envmodules/conda/gtdbtk-2.7.0/bin:$PATH
+export PATH=/opt/shared_software/shared_envmodules/conda/gtdbtk-2.7.1/bin:$PATH
+export GTDBTK_DATA_PATH="$DB"
 
 # ---- sanity checks ----             
 command -v gtdbtk >/dev/null 2>&1 || {

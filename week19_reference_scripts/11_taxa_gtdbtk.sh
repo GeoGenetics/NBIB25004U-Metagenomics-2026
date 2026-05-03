@@ -15,14 +15,13 @@ DB="/maps/projects/course_1/data/gtdb232/release232"
 
 # ---- setup for GTDB-Tk ----
 export PATH=/opt/shared_software/shared_envmodules/conda/gtdbtk-2.7.0/bin:$PATH
-export GTDBTK_DATA_PATH="$DB"
 
-# ---- sanity checks ----
-gtdbtk --version                 
+# ---- sanity checks ----             
 command -v gtdbtk >/dev/null 2>&1 || {
     echo "ERROR: 'gtdbtk' not found in PATH." >&2
     exit 1
 }
+gtdbtk --version    
 
 echo "Checking inputs..."
 [[ -d "$INPUT_DIR" ]] || { echo "❌ Missing directory: $INPUT_DIR"; exit 1; }

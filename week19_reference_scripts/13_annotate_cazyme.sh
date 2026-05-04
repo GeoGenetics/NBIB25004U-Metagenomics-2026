@@ -8,8 +8,6 @@
 #SBATCH --reservation=NBIB25004U
 #SBATCH --account=teaching
 
-set -euo pipefail
-
 # ---- PATHS ----
 # In class: run on Bakta-annotated genomes from the three shared reference genomes.
 # After class: swap INPUT_DIR / OUT_DIR to drop the _ref suffix:
@@ -37,12 +35,14 @@ echo "✅ Inputs look good"
 # ---- make output dir ----
 mkdir -p "$OUT_DIR"
 
-# ---- collect Bakta-annotated genome files (.fna) ----
-# We use Bakta's per-genome .fna (one file per genome) instead of .faa, because
-# Bakta writes BOTH <sample>.faa and <sample>_hypotheticals.faa — globbing *.faa
-# would feed each genome through twice. Using .fna sidesteps that, and dbCAN
-# does its own gene prediction via --mode prok below.
+# ---- enumerate Bakta-annotated genomes via .fna ----
+# Why .fna for enumeration? Bakta writes both <sample>.faa and
+# <sample>_hypotheticals.faa per genome, so globbing *.faa would list each
+# genome twice. The .fna file is unique per genome, so we use it as the
+# enumeration anchor and then look up the matching <sample>.faa for the
+# actual CAZyme annotation below (--mode protein).
 mapfile -t bins < <(ls "$INPUT_DIR"/*/*.fna 2>/dev/null | sort)
+[[ "${#bins[@]}" -gt 0 ]] || { echo "❌ No .fna files found in $INPUT_DIR"; exit 1; }
 
 # ---- print summary ----
 echo "=========================================="
@@ -50,37 +50,39 @@ echo "Running dbCAN on Bakta-annotated genomes..."
 echo "Input:    $INPUT_DIR"
 echo "Output:   $OUT_DIR"
 echo "Database: $DB"
-echo "Genomes:  ${bins[@]}"
+echo "Genomes:  ${#bins[@]}"
 echo "=========================================="
 
 # ---- run dbCAN ----
 for bin in "${bins[@]}"; do
     sample=$(basename "$bin" .fna)
-    out_dir="$output_path/$sample"
-    faa_file="$input_path/$sample/$sample.faa"
+    sample_out="$OUT_DIR/$sample"
+    faa_file="$INPUT_DIR/$sample/$sample.faa"
 
     # Make sure the protein file actually exists
-    if [ ! -s "$faa_file" ]; then
+    if [[ ! -s "$faa_file" ]]; then
         echo "[$sample] No .faa file found at $faa_file — skipping."
         continue
     fi
 
     # Skip if already annotated (overview.tsv is the canonical dbCAN output)
-    if [ -s "$out_dir/overview.tsv" ]; then
+    if [[ -s "$sample_out/overview.tsv" ]]; then
         echo "[$sample] Already annotated — skipping."
         continue
     fi
 
-    mkdir -p "$out_dir"
-
+    mkdir -p "$sample_out"
     echo "[$sample] Running dbCAN on $faa_file"
 
     run_dbcan CAZyme_annotation \
         --input_raw_data "$faa_file" \
         --mode protein \
-        --output_dir "$out_dir" \
-        --db_dir "$dbcan_db" \
-        --threads 6
- 
+        --output_dir "$sample_out" \
+        --db_dir "$DB" \
+        --threads 15
+
     echo "[$sample] Done"
 done
+
+echo "Done."
+echo "=== Job end: $(date) ==="

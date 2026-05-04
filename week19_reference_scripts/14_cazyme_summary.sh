@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # ---- PATHS ----
-DBCAN_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/10_annotation_cazymes/"
+DBCAN_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/10_annotation_cazymes_ref/"
 
 # ---- sanity checks ----
 echo "Checking inputs..."

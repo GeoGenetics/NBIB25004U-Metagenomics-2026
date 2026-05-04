@@ -12,7 +12,7 @@ set -euo pipefail
 
 # ---- PATHS ----
 INPUT_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/07_1_hq_mags/"
-OUT_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/09_annotation_bakta/"
+OUT_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/09_annotation_bakta_ref/"
 DB="/maps/projects/course_1/data/bakta_db_light"
 
 # ---- setup for Bakta ----

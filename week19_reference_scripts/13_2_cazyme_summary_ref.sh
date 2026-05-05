@@ -11,7 +11,7 @@ set -euo pipefail
 
 # ---- PATHS ----
 DBCAN_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/10_annotation_cazymes_ref/"
-SUMMARY_FILE="$DBCAN_DIR/dbcan_summary_ref.tsv"
+SUMMARY_FILE="$DBCAN_DIR/cazyme_summary_ref.tsv"
 
 # ---- counters (awk gsub: returns 0 cleanly when no matches) ----
 count_family() {

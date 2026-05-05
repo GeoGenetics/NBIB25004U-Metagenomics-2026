@@ -6,14 +6,6 @@
 #SBATCH --mem-per-cpu=6G
 #SBATCH --time=10:00:00
 #SBATCH --reservation=NBIB25004U
-#SBATCH --account=teaching#!/bin/bash
-#SBATCH --job-name=dbcan
-#SBATCH --output=/maps/projects/course_1/scratch/<group_#>/logs/dbcan_summary_%j.out
-#SBATCH --error=/maps/projects/course_1/scratch/<group_#>/logs/dbcan_summary_%j.err
-#SBATCH --cpus-per-task=15
-#SBATCH --mem-per-cpu=6G
-#SBATCH --time=10:00:00
-#SBATCH --reservation=NBIB25004U
 #SBATCH --account=teaching
 
 # Per-MAG dbCAN summary, joined with GTDB-Tk taxonomy.
@@ -33,7 +25,7 @@
 # ---- PATHS ----
 DBCAN_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/10_annotation_cazymes/"
 GTDBTK_FILE="//maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/08_taxa_gtdbtk/gtdbtk.bac120.summary.tsv"
-SUMMARY_FILE="$DBCAN_DIR/dbcan_summary.tsv"
+SUMMARY_FILE="$DBCAN_DIR/dbcan_summary_mags.tsv"
 
 # ---- bodysite lookup ----
 get_bodysite() {

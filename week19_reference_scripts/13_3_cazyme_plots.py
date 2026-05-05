@@ -22,9 +22,11 @@ Produces, in the chosen output directory:
 
 Also writes the underlying counts as CSVs alongside the plots.
 
-Usage:
+Step 1: Load environment (HPC only)
     module load anaconda3/5.3.1
-    python scripts/13_3_cazymes_plots.py /path/to/dbcan_dir -o results
+
+Step 2: Run the script
+    python scripts/13_3_cazyme_plots.py /path/to/dbcan_dir -o cazyme_plot
 """
 
 from __future__ import annotations

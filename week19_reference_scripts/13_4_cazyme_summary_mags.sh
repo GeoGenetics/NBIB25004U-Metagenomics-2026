@@ -25,7 +25,7 @@
 # ---- PATHS ----
 DBCAN_DIR="/maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/10_annotation_cazymes/"
 GTDBTK_FILE="//maps/projects/course_1/scratch/<group_#>/<group-project-group-#>/08_taxa_gtdbtk/gtdbtk.bac120.summary.tsv"
-SUMMARY_FILE="$DBCAN_DIR/dbcan_summary_mags.tsv"
+SUMMARY_FILE="$DBCAN_DIR/cazyme_summary_mags.tsv"
 
 # ---- bodysite lookup ----
 get_bodysite() {

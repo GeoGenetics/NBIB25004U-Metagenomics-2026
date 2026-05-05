@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visualize dbCAN output across multiple samples.
+Visualise dbCAN output across multiple samples.
 
 Expects the following layout:
 
@@ -23,7 +23,8 @@ Produces, in the chosen output directory:
 Also writes the underlying counts as CSVs alongside the plots.
 
 Usage:
-    python dbcan_plots.py /path/to/dbcan_dir -o results
+    module load anaconda3/5.3.1
+    python scripts/13_3_cazymes_plots.py /path/to/dbcan_dir -o results
 """
 
 from __future__ import annotations

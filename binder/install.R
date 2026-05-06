@@ -2,6 +2,12 @@
 install.packages(c(
   "tidyverse",
   "ggplot2",
+  "dplyr",
+  "tidyr",
+  "janitor",
+  "future",
+  "caret",
+  "mikropml",
   "vegan",
   "reshape2",
   "pheatmap",

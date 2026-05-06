@@ -18,6 +18,22 @@ This branch provides a cloud-based RStudio environment for the R-based practical
 
 ---
 
+## Data
+
+The `data/` folder contains the input data for the practical sessions:
+
+| File | Contents |
+|------|----------|
+| [data/phyloseq_augmented.rds](data/phyloseq_augmented.rds) | A phyloseq object (`ps`) with count reads (OTU table), taxonomy table, and sample metadata ready for analysis |
+
+Load it in R with:
+
+```r
+ps <- readRDS("data/phyloseq_augmented.rds")
+```
+
+---
+
 ## Working with the Rmd templates
 
 Three R Markdown templates are provided in this repository:

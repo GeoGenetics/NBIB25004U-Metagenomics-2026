@@ -39,7 +39,7 @@ library(tibble)
 ```
 
 ```{r load-phyloseq-object}
-ps <- readRDS(file.path("data", "phyloseq_augmented.rds"))
+ps <- readRDS(file.path("../data", "phyloseq_augmented.rds"))
 
 ps
 ```
@@ -116,6 +116,13 @@ Questions to consider:
 * Do the same sample groups show higher or lower diversity?
 * Are the differences between groups stronger or weaker than for Shannon diversity?
 
+```{r calculate-observed}
+# Calculate Observed richness for all samples
+
+(...)
+
+```
+
 # 3. Statistical testing
 
 The built-in `plot_richness()` function is very useful for quick exploratory visualisations, but in many analyses we also want to perform formal statistical testing to evaluate whether diversity differs significantly between groups of samples.
@@ -127,6 +134,8 @@ To do this, it is often convenient to extract the alpha-diversity values into a 
 The code below calculates both Shannon diversity and Observed richness separately, converts the sample names into an explicit column (`sample_id`), extracts the sample metadata, and finally merges everything into a single table.
 
 ```{r build-alpha-diversity-table}
+#ps_pa <- transform_sample_counts(ps, function(x) {ifelse(x > 0, 1, 0)})
+
 # Calculate Shannon diversity
 shannon <- estimate_richness(
   ps,
@@ -136,7 +145,7 @@ shannon <- estimate_richness(
 
 # Calculate observed richness
 observed <- estimate_richness(
-  ps,
+  ps_pa,
   measures = "Observed"
 ) %>%
   rownames_to_column("sample_id")

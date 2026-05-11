@@ -1,0 +1,326 @@
+---
+title: "Build and explore phyloseq object"
+author: "Mateu Menendez Serra (mateu.menendez@sund.ku.dk)"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Overview
+
+In this practical, you will explore alpha- and beta-diversity patterns using the data you generated in previous sessions.
+
+To do this, you will first learn how to organise microbiome data into a **phyloseq** object and how to use the built-in functions that phyloseq offers for:
+
+* data handling
+* visualisation
+* data transformation
+* alpha- and beta-diversity estimation and visualisation
+* and more.
+
+You can find a complete phyloseq user guide [here](https://joey711.github.io/phyloseq/).
+
+The sessions will be conducted in **R** and, therefore, during these practicals we will not work in the terminal as in previous sessions. Instead, we will use RStudio. To simplify the individual setup, package installation, and dependency management, we will use a Binder environment that allows us to run RStudio directly in the browser.
+
+To launch the Binder environment, go to the repository main page, switch to the **r-studio** branch, and follow the instructions. Once loaded, you will be able to work in an RStudio-like environment running in your browser, with the repository available as the working directory.
+
+> **Working directory layout**
+>
+> ```text
+> week20_rmd_scripts
+> ├── 01_build_and_explore_phyloseq_object.Rmd
+> ├── 02_statistical_testing_of_alpha_diversity.Rmd
+> └── 03_...
+>
+> data/
+> ├── mag_table.tsv
+> ├── sample_data.tsv
+> ├── tax_table.tsv
+> ├── gtdb_mag_tree.tree
+> └── phyloseq_augmented.rds
+> ```
+
+# 1. Phyloseq
+
+## Introduction to phyloseq
+
+`phyloseq` is an R package specifically designed for the analysis and visualisation of microbiome data. It provides a unified framework to integrate different types of information commonly generated in microbial community studies, including taxonomic abundance tables, sample metadata, taxonomic classifications, and phylogenetic trees. By storing all these components within a single object, phyloseq simplifies data handling and allows users to perform downstream analyses such as diversity estimation, ordination, filtering, and visualisation in a consistent and reproducible way.
+
+## Step 1: Create the phyloseq object
+
+In R, most functionality is organised into **packages**, which are collections of functions and tools designed for specific types of analyses. Before starting, we need to load the packages that we will use throughout the practical.
+
+In this session:
+
+* `phyloseq` will be used to organise and analyse microbiome data.
+* `tidyverse` provides a collection of useful packages for data manipulation and visualisation.
+* `ape` contains tools for handling and visualising phylogenetic trees.
+
+You can load packages in R using the `library()` function:
+
+```{r load-packages}
+library(phyloseq)
+library(tidyverse)
+library(ape)
+library(tibble)
+```
+
+Once the packages are loaded, the first step is to load the independent files containing the different components of our microbiome dataset.
+
+In this example, we will load:
+
+* an abundance table (`mag_table.tsv`) containing MAG abundances across samples,
+* a taxonomy table (`tax_table.tsv`) containing the taxonomic classification of each MAG,
+* and a metadata table (`sample_data.tsv`) containing information associated with each sample.
+
+```{r load-input-files}
+data_dir <- "data"
+
+# mag_table.tsv
+# - first column: MAG IDs
+# - remaining columns: samples
+# - values: abundance values for each MAG in each sample
+
+otu_df <- read.delim(
+  file.path(data_dir, "mag_table.tsv"),
+  check.names = FALSE
+)
+
+
+# tax_table.tsv
+# - first column: MAG IDs
+# - remaining columns: taxonomy ranks
+
+tax_df <- read.delim(
+  file.path(data_dir, "tax_table.tsv"),
+  check.names = FALSE
+)
+
+
+# sample_data.tsv
+# - first column: sample IDs
+# - remaining columns: metadata variables
+
+sample_df <- read.delim(
+  file.path(data_dir, "sample_data.tsv"),
+  check.names = FALSE
+)
+```
+
+Additionally, to fully explore the capabilities of phyloseq, we have included a phylogenetic tree linking the MAGs. Since the MAGs were taxonomically annotated with GTDB-Tk using the GTDB taxonomy, we can use the phylogenetic tree provided by GTDB as part of the resources distributed with each release: <https://data.gtdb.aau.ecogenomic.org>
+
+```{r load-tree}
+# gtdb_mag_tree.tree
+# - Newick tree
+# - tip labels must match the MAG IDs used in the abundance table
+
+tree <- ape::read.tree(file.path(data_dir, "gtdb_mag_tree.tree"))
+```
+
+Before creating the phyloseq object, we need to convert the imported data frames into the formats expected by phyloseq.
+
+For the abundance and taxonomy tables, this means converting them into matrices while using the MAG identifiers as row names. Similarly, for the sample metadata table, sample identifiers must be set as row names.
+
+```{r prepare-phyloseq-inputs}
+otu_mat <- otu_df %>%
+  column_to_rownames("MAG") %>%
+  as.matrix()
+
+tax_mat <- tax_df %>%
+  column_to_rownames("MAG") %>%
+  as.matrix()
+
+sample_tab <- sample_df %>%
+  column_to_rownames("sample_id")
+```
+
+Once the data have been loaded and inspected, we can create the **phyloseq** object by combining all the required components: the abundance table, taxonomy table, sample metadata, and phylogenetic tree.
+
+```{r build-phyloseq-object}
+ps <- phyloseq(
+  otu_table(otu_mat, taxa_are_rows = TRUE),
+  tax_table(tax_mat),
+  sample_data(sample_tab),
+  phy_tree(tree)
+)
+
+ps
+```
+
+You can inspect the object and explore its structure with the following functions:
+
+```{r inspect-phyloseq-object}
+sample_variables(ps)
+rank_names(ps)
+sample_names(ps)
+taxa_names(ps)
+sample_sums(ps)
+nsamples(ps)
+ntaxa(ps)
+phy_tree(ps)
+```
+
+## Step 2: The reverse pathway
+
+Now we have a single object containing all the available information. However, sometimes a phyloseq object may feel a bit like a black box, and we may want to extract its individual components or return to something closer to the original tables.
+
+This is straightforward, as the original layers can always be recovered from the phyloseq object.
+
+```{r extract-layers}
+otu_table_df <- otu_table(ps) %>% data.frame()
+taxonomy_df <- tax_table(ps) %>% data.frame()
+metadata_df <- sample_data(ps) %>% data.frame()
+```
+
+Phyloseq also provides a convenient way to extract the data in long format, which is often easier to work with for plotting and statistical analysis.
+
+```{r psmelt-example}
+ps_long <- psmelt(ps)
+head(ps_long)
+```
+
+The long-format table contains one row per taxon-sample combination, together with the associated taxonomy and sample metadata.
+
+## Step 3: Handling the data
+
+One of the main advantages of phyloseq is that it provides a consistent framework to manipulate microbiome datasets while keeping abundance tables, taxonomy, metadata, and phylogenetic information synchronised.
+
+Below are a few examples of common operations that are frequently useful during microbiome analyses.
+
+### Subsetting samples
+
+Samples can be filtered according to metadata variables. In this example, we keep only samples belonging to two body-site categories.
+
+```{r subset-samples}
+ps_gut <- subset_samples(
+  ps,
+  body_site %in% c("gut_adult", "gut_infant")
+)
+
+ps_gut
+```
+
+### Subsetting taxa
+
+Similarly, taxa can be filtered according to their taxonomy. Here, we retain only taxa classified within the class Clostridia.
+
+```{r subset-taxa}
+ps_clostridia <- subset_taxa(
+  ps,
+  class == "Clostridia"
+)
+
+ps_clostridia
+```
+
+### Filtering low-depth samples
+
+Low-depth samples are often removed prior to downstream analyses. In this example, we keep only samples with at least 30 total counts or total abundance units.
+
+```{r prune-samples}
+ps_over30 <- prune_samples(
+  sample_sums(ps) >= 30,
+  ps
+)
+
+ps_over30
+```
+
+### Agglomerating taxa
+
+Microbiome datasets are often simplified by agglomerating taxa at higher taxonomic ranks, for example at species, genus, or family level. This reduces taxonomic resolution but can greatly simplify visualisation and interpretation.
+
+```{r agglomerate-taxa}
+ps_genus <- tax_glom(
+  ps,
+  taxrank = "genus",
+  NArm = TRUE
+)
+
+# After agglomeration, the taxa are grouped at the genus level,
+# but the taxa names still correspond to the original MAG IDs.
+# To make the object easier to interpret and visualise,
+# we can replace the taxa names with the corresponding genus names.
+taxa_names(ps_genus) <- make.unique(
+  as.character(tax_table(ps_genus)[, "genus"])
+)
+
+tax_table(ps_genus)
+```
+
+### Transforming abundance values
+
+Functions can also be applied directly to the abundance table. In this simple example, all abundance values are multiplied by two.
+
+```{r transform-counts}
+ps_mod <- transform_sample_counts(
+  ps,
+  function(x) {
+    x * 2
+  }
+)
+
+taxa_sums(ps_mod)
+taxa_sums(ps)
+```
+
+## Step 4: Data visualisation with phyloseq
+
+phyloseq includes several built-in visualisation functions that make it easy to quickly explore microbiome datasets. These functions are particularly useful for inspecting community structure, identifying dominant taxa, and exploring relationships between samples.
+
+### Visualising the phylogenetic tree
+
+A simple tree plot can be useful to confirm that the phylogenetic tree has been correctly attached to the phyloseq object.
+
+```{r plot-tree, fig.width=9, fig.height=7}
+plot_tree(ps)
+```
+
+In the resulting tree, we can see the MAGs at the tips of the tree, and each dot represents their abundance in each sample. This is the simplest possible way to visualise it, but there are ways to make the plot look nicer. This is an example from the phyloseq tutorial webpage:
+
+![](https://joey711.github.io/phyloseq/plot_tree-examples_files/figure-html/unnamed-chunk-16-1.png)
+
+### Barplots of community composition
+
+Barplots are one of the most common ways to visualise microbiome composition and are often easier to interpret than phylogenetic trees when first exploring a dataset.
+
+In this example, taxa are coloured according to their phylum-level classification.
+
+```{r plot-bar, fig.width=10, fig.height=6}
+plot_bar(ps, fill = "phylum")
+```
+
+### Heatmaps
+
+Heatmaps are useful for simultaneously visualising patterns across both samples and taxa. However, large microbiome datasets can quickly become visually crowded, so these plots are often easier to interpret after filtering or taxonomic agglomeration.
+
+```{r plot-heatmap, fig.width=10, fig.height=7}
+plot_heatmap(ps_genus)
+```
+
+Here is a nice example of a heatmap:
+
+![](https://joey711.github.io/phyloseq/plot_heatmap-examples_files/figure-html/unnamed-chunk-10-1.png)
+
+## Step 5: DIY
+
+Now that you have explored some of the basic functionality of phyloseq, it is time to use it to explore your own dataset. Try to create a small set of exploratory analyses and visualisations to investigate what useful information can be extracted from the data.
+
+Some suggested goals are:
+
+1. Create barplots at different taxonomic levels, for example phylum, family, and genus, to identify preliminary patterns across samples or body sites.
+2. Visualise the phylogenetic tree together with abundance information to explore whether certain phylogenetic groups are associated with specific samples or environments.
+3. Generate heatmaps to identify taxa showing similar patterns across samples belonging to the same body site or experimental group.
+4. Explore how filtering low-abundance taxa or low-depth samples affects the visualisation and interpretation of the data.
+5. Try agglomerating the dataset at different taxonomic ranks and compare how the resulting plots change.
+
+Remember that exploratory analysis is an important step in microbiome studies. The goal is not only to generate figures, but also to begin thinking critically about which biological patterns may or may not be supported by the data.
+
+While using your favourite AI assistant might be tempting, all the information needed for this practical is already available in the phyloseq tutorials and documentation: <https://joey711.github.io/phyloseq/index.html>

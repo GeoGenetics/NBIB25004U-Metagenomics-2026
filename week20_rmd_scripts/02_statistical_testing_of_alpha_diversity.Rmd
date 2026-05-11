@@ -1,0 +1,301 @@
+---
+title: "Statistical testing of alpha diversity"
+author: "Mateu Menendez Serra (mateu.menendez@sund.ku.dk)"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+Statistical testing of alpha diversity
+
+# Overview
+
+In this session, we will continue working with the same phyloseq object created in the previous practical and use phyloseq's built-in functions to explore patterns of **alpha diversity** across samples.
+
+Alpha diversity describes the diversity observed **within individual samples**. Unlike beta diversity, which focuses on differences between samples, alpha diversity summarises how complex or diverse a single microbial community is.
+
+In this practical, we will focus on two commonly used alpha-diversity metrics:
+
+* **Observed richness**: the number of detected MAGs or taxa within a sample.
+* **Shannon diversity**: a metric that accounts for both richness and the evenness of abundance distributions.
+
+Throughout the session, we will move from simple exploratory visualisations to formal statistical testing.
+
+# 1. Load the phyloseq object
+
+This practical assumes that you already created a phyloseq object in the previous session and saved it as an `.rds` file. We will load that object here so that everyone starts from the same point.
+
+```{r load-packages}
+library(phyloseq)
+library(tidyverse)
+library(tibble)
+```
+
+```{r load-phyloseq-object}
+ps <- readRDS(file.path("data", "phyloseq_augmented.rds"))
+
+ps
+```
+
+# 2. Alpha-diversity estimation
+
+phyloseq provides convenient built-in functions to calculate and visualise alpha-diversity metrics directly from a phyloseq object.
+
+The function `estimate_richness()` calculates alpha-diversity estimates for each sample, while `plot_richness()` provides quick visualisations of those estimates across samples or sample groups.
+
+Both functions accept:
+
+* a phyloseq object,
+* and a vector specifying which diversity measures should be calculated.
+
+In this session, we will focus on two of the most commonly used alpha-diversity metrics: Observed richness (`"Observed"`) and Shannon diversity (`"Shannon"`). These metrics capture different aspects of diversity and are therefore not interchangeable.
+
+## Calculating alpha diversity
+
+The function `estimate_richness()` calculates the selected diversity measures for every sample in the phyloseq object and returns the results as a data frame.
+
+```{r calculate-shannon}
+# Calculate Shannon diversity for all samples
+shannon <- estimate_richness(
+  ps,
+  measures = "Shannon"
+)
+
+head(shannon)
+```
+
+## Visualising alpha diversity
+
+The function `plot_richness()` creates quick exploratory visualisations of alpha-diversity patterns across samples. The simplest possible plot displays diversity values for each sample individually.
+
+```{r plot-shannon-basic, fig.width=8, fig.height=5}
+plot_richness(
+  ps,
+  measures = "Shannon"
+)
+```
+
+In many cases, we are interested in comparing diversity across groups of samples. Metadata variables stored in the phyloseq object can be used directly for grouping and visualisation.
+
+Here, samples are grouped according to the `body_site` metadata variable.
+
+```{r plot-shannon-by-body-site, fig.width=9, fig.height=5}
+plot_richness(
+  ps,
+  measures = "Shannon",
+  x = "body_site"
+)
+```
+
+Additional metadata variables can also be used to colour the points and facilitate interpretation.
+
+```{r plot-shannon-coloured, fig.width=9, fig.height=5}
+plot_richness(
+  ps,
+  measures = "Shannon",
+  x = "body_site",
+  color = "simulated"
+)
+```
+
+## Exercise: Observed richness
+
+Now let us repeat the same exploration using **Observed richness** (`"Observed"`) instead of Shannon diversity.
+
+Take a few minutes to create and inspect equivalent plots for observed richness, and think about how the patterns compare with the Shannon diversity plots.
+
+Questions to consider:
+
+* Do the same sample groups show higher or lower diversity?
+* Are the differences between groups stronger or weaker than for Shannon diversity?
+
+# 3. Statistical testing
+
+The built-in `plot_richness()` function is very useful for quick exploratory visualisations, but in many analyses we also want to perform formal statistical testing to evaluate whether diversity differs significantly between groups of samples.
+
+## Combining alpha-diversity estimates with sample metadata
+
+To do this, it is often convenient to extract the alpha-diversity values into a standard data frame and combine them with the sample metadata stored in the phyloseq object.
+
+The code below calculates both Shannon diversity and Observed richness separately, converts the sample names into an explicit column (`sample_id`), extracts the sample metadata, and finally merges everything into a single table.
+
+```{r build-alpha-diversity-table}
+# Calculate Shannon diversity
+shannon <- estimate_richness(
+  ps,
+  measures = "Shannon"
+) %>%
+  rownames_to_column("sample_id")
+
+# Calculate observed richness
+observed <- estimate_richness(
+  ps,
+  measures = "Observed"
+) %>%
+  rownames_to_column("sample_id")
+
+# Extract sample metadata
+sample_df <- sample_data(ps) %>%
+  data.frame() %>%
+  rownames_to_column("sample_id")
+
+# Combine diversity estimates and metadata
+alpha_diversity <- inner_join(
+  shannon,
+  observed,
+  by = "sample_id"
+) %>%
+  inner_join(
+    sample_df,
+    by = "sample_id"
+  )
+```
+
+The resulting `alpha_diversity` data frame contains:
+
+* one row per sample,
+* alpha-diversity estimates,
+* and all associated sample metadata variables.
+
+This format is particularly useful because it allows us to use standard tidyverse and statistical functions for downstream analyses.
+
+You can inspect the resulting table with:
+
+```{r inspect-alpha-diversity-table}
+head(alpha_diversity)
+```
+
+Now that all diversity estimates and metadata are combined into a single table, we can formally test whether alpha diversity differs between groups of samples.
+
+A common first approach is to compare diversity across environments or sample types using statistical tests.
+
+For example, we may want to ask:
+
+*Do microbial communities from different body sites show significantly different alpha diversity?*
+
+Before choosing a statistical test, it is important to remember that alpha-diversity values:
+
+* are often not normally distributed,
+* may contain unequal variances across groups,
+* and can be strongly influenced by sequencing depth.
+
+Because of this, non-parametric tests are frequently preferred in microbiome analyses.
+
+In this practical, we will use the Kruskal-Wallis test, a non-parametric alternative to one-way ANOVA.
+
+The Kruskal-Wallis test evaluates whether the distribution of diversity values differs across two or more groups.
+
+## Testing Shannon diversity across body sites
+
+```{r kruskal-shannon}
+kruskal_shannon <- kruskal.test(
+  Shannon ~ body_site,
+  data = alpha_diversity
+)
+
+kruskal_shannon
+```
+
+The output includes a p-value that helps us evaluate whether alpha-diversity distributions differ across the groups being compared.
+
+A small p-value, commonly below `0.05`, suggests evidence against the null hypothesis that all groups have similar diversity distributions, whereas a larger p-value indicates that the observed differences could plausibly arise by chance.
+
+## Pairwise comparisons between groups
+
+The Kruskal-Wallis test tells us whether there is evidence that diversity differs across groups overall, but it does not indicate which specific groups differ from each other.
+
+To investigate this further, we can perform pairwise comparisons between all body-site groups using the Wilcoxon rank-sum test.
+
+Because multiple comparisons are performed simultaneously, p-values should be adjusted to reduce the risk of false positives. Here, we use the Benjamini-Hochberg (`"BH"`) correction method.
+
+```{r pairwise-wilcoxon-shannon}
+pw_shannon <- pairwise.wilcox.test(
+  x = alpha_diversity$Shannon,
+  g = alpha_diversity$body_site,
+  p.adjust.method = "BH"
+)
+
+pw_shannon
+```
+
+The output is a matrix containing adjusted p-values for every pairwise comparison between body sites.
+
+Interpretation guidelines:
+
+* Small adjusted p-values suggest evidence that the diversity distributions differ between two specific groups.
+* Larger p-values indicate weaker evidence for differences between those groups.
+* Because p-values are adjusted for multiple testing, the results are more conservative than unadjusted pairwise tests.
+
+This type of analysis is commonly used after a significant Kruskal-Wallis test, but it can also be informative as an exploratory analysis even when the global test is not significant.
+
+## Visualising distributions with boxplots
+
+Statistical tests are much easier to interpret when combined with visualisations.
+
+A common approach is to display alpha-diversity distributions using boxplots together with individual sample points.
+
+```{r shannon-boxplot, fig.width=8, fig.height=5}
+ggplot(alpha_diversity, aes(x = body_site, y = Shannon)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2) +
+  theme_bw()
+```
+
+## Exercise: Testing observed richness
+
+Repeat the same analysis using Observed richness instead of Shannon diversity.
+
+Tasks:
+
+1. Perform a Kruskal-Wallis test for Observed richness across body sites.
+2. Create a boxplot visualisation similar to the one above.
+3. Compare the results obtained for Shannon diversity and Observed richness.
+
+Questions to consider:
+
+* Do both metrics lead to the same biological interpretation?
+* Which metric shows stronger differences between body sites?
+* Why might richness and Shannon diversity behave differently?
+
+## Exercise: Effect of sequencing depth on alpha diversity
+
+One important limitation of alpha-diversity estimation is that diversity metrics are often influenced by sequencing depth.
+
+We can explore whether samples with more reads also tend to have higher diversity estimates.
+
+```{r depth-vs-shannon, fig.width=7, fig.height=5}
+# Total abundance per sample
+sample_depth <- sample_sums(ps)
+
+alpha_diversity$reads <- sample_depth[
+  alpha_diversity$sample_id
+]
+
+ggplot(alpha_diversity, aes(x = reads, y = Shannon)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+
+We can also test this relationship statistically.
+
+```{r spearman-depth-shannon}
+cor.test(
+  alpha_diversity$reads,
+  alpha_diversity$Shannon,
+  method = "spearman"
+)
+```
+
+Questions to consider:
+
+* Do samples with more reads tend to show higher diversity?
+* Is the relationship stronger for Observed richness or Shannon diversity?
+* Why are richness metrics particularly sensitive to sequencing depth?

@@ -39,7 +39,7 @@ library(tibble)
 ```
 
 ```{r load-phyloseq-object}
-ps <- readRDS(file.path("../data", "phyloseq_augmented.rds"))
+ps <- readRDS(file.path("../data", "phyloseq_augmented_v2.rds"))
 
 ps
 ```

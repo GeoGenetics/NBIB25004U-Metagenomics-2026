@@ -1,0 +1,18 @@
+Starting Model Training Phase...
+Parallel processing enabled with 4 cores.
+Learned preprocessing inside caret::train(): nzv, corr, center, scale 
+
+Step 3: Training Logistic Regression (glmnet)...
+Strategy: 80/20 Train-Test split, 5-fold Cross-Validation (repeated 2x for this tutorial)
+
+Step 4: Training Random Forest (rf)...
+
+--- Training Results Summary ---
+GLMNET Performance (Internal CV AUC): 0.6248438 
+GLMNET Performance (Test Set AUC): 0.6342105 
+
+RF Performance (Internal CV AUC): 0.6578661 
+RF Performance (Test Set AUC): 0.6960526 
+
+Success: Trained models saved to results/model_results.rds
+Model Training Phase Complete.

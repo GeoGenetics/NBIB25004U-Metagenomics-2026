@@ -1,0 +1,3 @@
+"version","dx_missing_count","dx_unique_non_missing","interpretation"
+"correct_prepared_data",0,2,"Outcome labels are intact."
+"error_across_everything_as_numeric",200,0,"Outcome labels became missing; across(everything(), as.numeric) touched dx."

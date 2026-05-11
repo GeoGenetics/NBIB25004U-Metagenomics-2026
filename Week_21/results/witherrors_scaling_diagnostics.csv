@@ -1,0 +1,31 @@
+"method","feature","test_mean","test_sd","interpretation","abs_test_mean","abs_test_sd_minus_1"
+"correct_train_fit","otu00001",-0.0711778730319484,1.01126686646882,"Expected: held-out test data is transformed with training parameters.",0.0711778730319484,0.0112668664688249
+"correct_train_fit","otu00002",-0.19915225882543,0.512222119850159,"Expected: held-out test data is transformed with training parameters.",0.19915225882543,0.487777880149841
+"correct_train_fit","otu00003",0.0748633611025405,1.03723201922337,"Expected: held-out test data is transformed with training parameters.",0.0748633611025405,0.0372320192233695
+"correct_train_fit","otu00004",0.510646357874439,1.45996194190379,"Expected: held-out test data is transformed with training parameters.",0.510646357874439,0.459961941903794
+"correct_train_fit","otu00005",-0.285548012184106,0.591194539085783,"Expected: held-out test data is transformed with training parameters.",0.285548012184106,0.408805460914217
+"correct_train_fit","otu00006",-0.108234360176081,0.780481559078187,"Expected: held-out test data is transformed with training parameters.",0.108234360176081,0.219518440921813
+"correct_train_fit","otu00007",0.177662627578284,1.17097462974899,"Expected: held-out test data is transformed with training parameters.",0.177662627578284,0.170974629748985
+"correct_train_fit","otu00008",-0.119680003969027,0.669530151644328,"Expected: held-out test data is transformed with training parameters.",0.119680003969027,0.330469848355672
+"correct_train_fit","otu00009",0.167612761914655,1.54526206827429,"Expected: held-out test data is transformed with training parameters.",0.167612761914655,0.545262068274288
+"correct_train_fit","otu00010",0.118504693988425,1.05142468693801,"Expected: held-out test data is transformed with training parameters.",0.118504693988425,0.0514246869380146
+"error_full_dataset_fit","otu00001",-0.0572952854087955,1.01121564176547,"Leakage: preprocessing parameters used held-out rows.",0.0572952854087955,0.0112156417654696
+"error_full_dataset_fit","otu00002",-0.172836863983598,0.552221854202439,"Leakage: preprocessing parameters used held-out rows.",0.172836863983598,0.447778145797561
+"error_full_dataset_fit","otu00003",0.0599557411531491,1.0319092108402,"Leakage: preprocessing parameters used held-out rows.",0.0599557411531491,0.0319092108401959
+"error_full_dataset_fit","otu00004",0.367352788350863,1.30469427405479,"Leakage: preprocessing parameters used held-out rows.",0.367352788350863,0.304694274054791
+"error_full_dataset_fit","otu00005",-0.244535055331313,0.628921611327009,"Leakage: preprocessing parameters used held-out rows.",0.244535055331313,0.371078388672991
+"error_full_dataset_fit","otu00006",-0.0907300504217889,0.812742113281512,"Leakage: preprocessing parameters used held-out rows.",0.0907300504217889,0.187257886718488
+"error_full_dataset_fit","otu00007",0.138207305875487,1.13158329016057,"Leakage: preprocessing parameters used held-out rows.",0.138207305875487,0.13158329016057
+"error_full_dataset_fit","otu00008",-0.102015098629785,0.708952467350417,"Leakage: preprocessing parameters used held-out rows.",0.102015098629785,0.291047532649583
+"error_full_dataset_fit","otu00009",0.119993341914735,1.3742202068894,"Leakage: preprocessing parameters used held-out rows.",0.119993341914735,0.374220206889398
+"error_full_dataset_fit","otu00010",0.0945800300043428,1.04242827743437,"Leakage: preprocessing parameters used held-out rows.",0.0945800300043428,0.0424282774343696
+"error_test_fit_separately","otu00001",-5.83439769075725e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",5.83439769075725e-17,0
+"error_test_fit_separately","otu00002",-3.60413822184316e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",3.60413822184316e-17,0
+"error_test_fit_separately","otu00003",4.97954597783599e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",4.97954597783599e-17,0
+"error_test_fit_separately","otu00004",3.19964741133895e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",3.19964741133895e-17,0
+"error_test_fit_separately","otu00005",4.26897655402241e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",4.26897655402241e-17,0
+"error_test_fit_separately","otu00006",1.15610006655193e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",1.15610006655193e-17,1.11022302462516e-16
+"error_test_fit_separately","otu00007",-1.37804876128478e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",1.37804876128478e-17,0
+"error_test_fit_separately","otu00008",1.06932914268346e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",1.06932914268346e-17,0
+"error_test_fit_separately","otu00009",-1.27324255127785e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",1.27324255127785e-17,0
+"error_test_fit_separately","otu00010",-2.62043325073035e-17,1,"Leakage signature: test means become exactly 0 and SDs exactly 1.",2.62043325073035e-17,0

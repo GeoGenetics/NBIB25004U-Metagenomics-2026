@@ -1,0 +1,3 @@
+"dataset","max_abs_cor_with_dx","mean_abs_cor_with_dx","interpretation"
+"correct_labels",0.176209531873979,0.0980056778225811,"Baseline signal scan before intentional label shuffling."
+"shuffled_label_error",0.0526875500465444,0.0319294080988687,"Signal collapses because labels no longer match samples."

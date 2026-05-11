@@ -1,0 +1,15 @@
+Starting Model Evaluation Phase...
+
+Step 1: Comparative Performance Table
+# A tibble: 2 × 5
+  method   AUC prAUC Accuracy    F1
+  <chr>  <dbl> <dbl>    <dbl> <dbl>
+1 glmnet 0.634 0.625    0.513 0.678
+2 rf     0.696 0.642    0.667 0.649
+
+Step 2: Generating performance comparison plots...
+
+Step 3: Calculating ROC and PRC curves...
+
+Success: Evaluation tables and figures saved to results/ and figures/
+Model Evaluation Phase Complete.

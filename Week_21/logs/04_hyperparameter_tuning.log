@@ -1,0 +1,19 @@
+Starting Hyperparameter Tuning Phase...
+
+Step 1: Defining custom hyperparameter grids...
+
+Step 2: Re-training models with custom tuning grids...
+
+Step 3: Generating tuning performance plots...
+
+Step 4: Comparing Default vs Tuned models...
+# A tibble: 4 × 4
+  method version   AUC prAUC
+  <chr>  <chr>   <dbl> <dbl>
+1 glmnet Default 0.634 0.625
+2 glmnet Tuned   0.632 0.621
+3 rf     Default 0.696 0.642
+4 rf     Tuned   0.717 0.658
+
+Success: Tuning figures and comparison saved.
+Hyperparameter Tuning Phase Complete.

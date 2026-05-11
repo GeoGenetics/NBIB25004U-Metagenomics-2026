@@ -1,0 +1,16 @@
+Starting Data Preparation Phase...
+Using random seed: 42 
+Step 1: Cleaning column names...
+Step 2: Ensuring numeric data types for features...
+Step 3: Deferring learned preprocessing to model training...
+
+--- Preprocessing Summary ---
+Sample count: 200 
+Feature count: 10 
+Outcome counts:
+
+cancer normal 
+    98    102 
+
+Success: Prepared data saved to results/prepared_data.rds
+Data Preparation Phase Complete.

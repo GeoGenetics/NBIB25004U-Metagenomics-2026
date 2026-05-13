@@ -1,12 +1,7 @@
-# Install CRAN packages
-cran_repo <- "https://packagemanager.posit.co/cran/__linux__/jammy/2024-01-16"
-options(repos = c(CRAN = cran_repo))
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 cran_packages <- c(
   "tidyverse",
-  "ggplot2",
-  "dplyr",
-  "tidyr",
   "janitor",
   "future",
   "caret",
@@ -20,14 +15,15 @@ cran_packages <- c(
   "rmarkdown",
   "broom.mixed",
   "lme4",
-  "lmerTest"
+  "lmerTest",
+  "igraph"
 )
 
-install.packages(cran_packages)
+install.packages(cran_packages, dependencies = TRUE)
 
-# Install Bioconductor packages
-if (!requireNamespace("BiocManager", quietly = TRUE))
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
+}
 
 bioc_packages <- c(
   "phyloseq",
@@ -36,9 +32,14 @@ bioc_packages <- c(
   "apeglm"
 )
 
-BiocManager::install(bioc_packages, ask = FALSE, update = FALSE)
+BiocManager::install(
+  bioc_packages,
+  ask = FALSE,
+  update = FALSE
+)
 
-required_packages <- c(cran_packages, bioc_packages)
+required_packages <- c(cran_packages, bioc_packages, "BiocManager")
+
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
 ]

@@ -13,6 +13,7 @@ install.packages(c(
   "pheatmap",
   "RColorBrewer",
   "knitr",
+  "ggh4x",
   "rmarkdown"
 ), repos = "https://cloud.r-project.org")
 

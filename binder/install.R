@@ -1,5 +1,8 @@
 # Install CRAN packages
-install.packages(c(
+cran_repo <- "https://packagemanager.posit.co/cran/__linux__/jammy/2024-01-16"
+options(repos = c(CRAN = cran_repo))
+
+cran_packages <- c(
   "tidyverse",
   "ggplot2",
   "dplyr",
@@ -14,16 +17,35 @@ install.packages(c(
   "RColorBrewer",
   "knitr",
   "ggh4x",
-  "rmarkdown"
-), repos = "https://cloud.r-project.org")
+  "rmarkdown",
+  "broom.mixed",
+  "lme4",
+  "lmerTest"
+)
+
+install.packages(cran_packages)
 
 # Install Bioconductor packages
 if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager", repos = "https://cloud.r-project.org")
+  install.packages("BiocManager")
 
-BiocManager::install(c(
+bioc_packages <- c(
   "phyloseq",
   "microbiome",
   "DESeq2",
   "apeglm"
-), ask = FALSE)
+)
+
+BiocManager::install(bioc_packages, ask = FALSE, update = FALSE)
+
+required_packages <- c(cran_packages, bioc_packages)
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_packages) > 0) {
+  stop(
+    "The following packages failed to install: ",
+    paste(missing_packages, collapse = ", ")
+  )
+}

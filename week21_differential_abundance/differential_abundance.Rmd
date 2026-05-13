@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 The phyloseq package provides a unified data structure for microbiome studies, bundling together an OTU (or ASV, or MAG) count table, a taxonomy table, and sample metadata into a single object. Loading and inspecting this object is always the first step: it confirms that the data were read correctly and gives an overview of the dataset dimensions, the taxonomic ranks available, and the experimental variables recorded for each sample.
 
 ```{r}
-ps <- readRDS("phyloseq_augmented.rds")
+ps <- readRDS("data/phyloseq_augmented.rds")
 ps
 sample_data(ps)
 rank_names(ps)

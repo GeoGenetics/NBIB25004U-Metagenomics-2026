@@ -34,20 +34,6 @@ ps <- readRDS("data/phyloseq_augmented.rds")
 
 ---
 
-## Working with the Rmd templates
-
-Three R Markdown templates are provided in this repository:
-
-| File | Topic |
-|------|-------|
-| [01_template.Rmd](01_template.Rmd) | Template 1 |
-| [02_template.Rmd](02_template.Rmd) | Template 2 |
-| [03_template.Rmd](03_template.Rmd) | Template 3 |
-
-Open a template in RStudio, fill in the code chunks as instructed, and knit the document to produce an HTML report.
-
----
-
 ## Pre-installed R packages
 
 The environment is built from R 4.3 and includes the following packages:

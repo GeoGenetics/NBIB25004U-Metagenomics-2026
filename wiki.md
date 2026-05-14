@@ -83,7 +83,7 @@ Binder sessions are temporary. Any edits, rendered HTML files, or notes created 
 > ```
 > NBIB25004U-Metagenomics-2026/
 > ├── data/
-> │   ├── phyloseq_augmented.rds          # Main input object for this practical
+> │   ├── phyloseq_augmented_v2.rds          # Main input object for this practical
 > │   ├── mag_table.tsv                   # Abundance table used in earlier sessions
 > │   ├── sample_data.tsv                 # Sample metadata
 > │   └── tax_table.tsv                   # Taxonomic annotation
@@ -118,6 +118,12 @@ The repository Binder/RStudio environment already contains the packages needed f
 The Rmd begins by loading the packages used for microbiome data handling, data wrangling, plotting, model fitting, and ordination:
 
 ```r
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+This hidden setup chunk tells R Markdown to show the code in the rendered practical while suppressing routine package messages and warnings. That keeps the rendered HTML focused on the analysis output rather than package startup text.
+
+```r
 library(phyloseq)
 library(vegan)
 library(dplyr)
@@ -125,7 +131,6 @@ library(tibble)
 library(purrr)
 library(stringr)
 library(ggplot2)
-library(patchwork)
 library(tidyverse)
 library(ggh4x)
 library(lme4)
@@ -159,9 +164,6 @@ library(stringr)
 # Load the main plotting system used throughout the practical.
 library(ggplot2)
 
-# Load plot-composition tools for combining multiple ggplot panels.
-library(patchwork)
-
 # Load the broader tidyverse toolkit used for wrangling, plotting, and importing data.
 library(tidyverse)
 
@@ -190,7 +192,7 @@ The most important packages for this practical are `phyloseq`, `tidyverse`, `veg
 ### 🔹 Step 3 — Load the phyloseq object
 
 ```r
-ps <- readRDS("data/phyloseq_augmented.rds")
+ps <- readRDS("../data/phyloseq_augmented_v2.rds")
 
 sample_metadata <- sample_data(ps) %>%
   as("data.frame") %>%
@@ -222,7 +224,7 @@ sample_variables(ps)
 
 ```r
 # Read the saved phyloseq object from the course data directory.
-ps <- readRDS("data/phyloseq_augmented.rds")
+ps <- readRDS("../data/phyloseq_augmented_v2.rds")
 
 # Convert the compact teaching metadata into the variables used below.
 sample_metadata <- sample_data(ps) %>%
@@ -435,8 +437,8 @@ Formal tests are easier to interpret if you first look at individual taxon abund
 
 ```r
 one_taxon <- dat_rel$taxon[3]
-# one_taxon <- dat_rel$taxon[5]
-# one_taxon <- dat_rel$taxon[20]
+#one_taxon <- dat_rel$taxon[5]
+#one_taxon <- dat_rel$taxon[20]
 ```
 
 <details>
@@ -447,8 +449,8 @@ one_taxon <- dat_rel$taxon[3]
 one_taxon <- dat_rel$taxon[3]
 
 # Alternative example taxa: remove the # from one line to explore a different taxon.
-# one_taxon <- dat_rel$taxon[5]
-# one_taxon <- dat_rel$taxon[20]
+#one_taxon <- dat_rel$taxon[5]
+#one_taxon <- dat_rel$taxon[20]
 ```
 
 </details>
@@ -460,6 +462,7 @@ Changing the index lets you explore how different taxa behave. Some taxa will be
 ### 🔹 Step 2 — Compare the taxon across body sites
 
 ```r
+# Comparison between body sites
 dat_rel %>%
   filter(taxon == one_taxon) %>%
   ggplot(aes(x = body_site, y = rel_abund, fill = body_site)) +
@@ -498,8 +501,10 @@ The boxplot summarises the distribution in each body site, while the jittered po
 ### 🔹 Step 3 — Compare the same taxon between infant and adult gut samples
 
 ```r
+# Comparison between ages within gut samples
 dat_rel %>%
-  filter(taxon == one_taxon, body_site == "gut") %>%
+  filter(taxon == one_taxon) %>%
+  filter(body_site == "gut") %>%
   ggplot(aes(x = age, y = rel_abund, fill = body_site)) +
     geom_boxplot(outlier.shape = NA) +
     geom_jitter(width = 0.15) +
@@ -512,8 +517,10 @@ dat_rel %>%
 ```r
 # Start from the long relative-abundance table.
 dat_rel %>%
-  # Keep the selected taxon and restrict the comparison to gut samples.
-  filter(taxon == one_taxon, body_site == "gut") %>%
+  # Keep the selected taxon.
+  filter(taxon == one_taxon) %>%
+  # Restrict the comparison to gut samples.
+  filter(body_site == "gut") %>%
   # Plot relative abundance by age group within the gut samples.
   ggplot(aes(x = age, y = rel_abund, fill = body_site)) +
     # Show the group-level distribution while hiding automatic outlier dots.
@@ -550,6 +557,9 @@ dat_rel %>%
   summarise(prop_zero = mean(rel_abund == 0), .groups = "drop") %>%
   ggplot(aes(x = prop_zero)) +
     geom_histogram(binwidth = 0.05, fill = "steelblue", color = "white") +
+    labs(x = "Proportion of samples where relative abundance = 0",
+         y = "Number of taxa",
+         title = "Zero-inflation: most taxa are absent from most samples") +
     theme_bw()
 ```
 
@@ -569,6 +579,10 @@ dat_rel %>%
   ggplot(aes(x = prop_zero)) +
     # Use bins of width 0.05 so each bin represents a 5 percentage-point interval.
     geom_histogram(binwidth = 0.05, fill = "steelblue", color = "white") +
+    # Label the axes and state the main diagnostic point in the title.
+    labs(x = "Proportion of samples where relative abundance = 0",
+         y = "Number of taxa",
+         title = "Zero-inflation: most taxa are absent from most samples") +
     # Use a simple high-contrast theme.
     theme_bw()
 ```
@@ -585,12 +599,24 @@ This histogram shows the proportion of gut samples where each taxon has zero rel
 ### 🔹 Step 2 — Inspect skewness among non-zero values
 
 ```r
+set.seed(42)
+example_taxa <- dat_rel %>%
+  filter(body_site == "gut") %>%
+  group_by(taxon, genus, species) %>%
+  summarise(prop_nonzero = mean(rel_abund > 0), .groups = "drop") %>%
+  filter(prop_nonzero > 0.4, prop_nonzero < 0.9) %>%
+  slice_sample(n = 6) %>%
+  pull(taxon)
+
 dat_rel %>%
   filter(body_site == "gut", taxon %in% example_taxa, rel_abund > 0) %>%
   mutate(label = paste(genus, species)) %>%
   ggplot(aes(x = rel_abund)) +
     geom_histogram(bins = 20, fill = "steelblue", color = "white") +
     facet_wrap(~ label, scales = "free") +
+    labs(x = "Relative abundance (non-zero values only)",
+         y = "Count",
+         title = "Right-skewed distributions in gut taxa") +
     theme_bw()
 ```
 
@@ -598,6 +624,23 @@ dat_rel %>%
 <summary>Annotated code</summary>
 
 ```r
+# Set the random seed so the same example taxa are selected every time.
+set.seed(42)
+
+# Pick taxa that are neither absent from nearly all samples nor present in every sample.
+example_taxa <- dat_rel %>%
+  # Focus on gut samples because these are used in the age comparison.
+  filter(body_site == "gut") %>%
+  # Calculate the proportion of non-zero samples for each taxon.
+  group_by(taxon, genus, species) %>%
+  summarise(prop_nonzero = mean(rel_abund > 0), .groups = "drop") %>%
+  # Keep taxa with enough non-zero observations to make histograms informative.
+  filter(prop_nonzero > 0.4, prop_nonzero < 0.9) %>%
+  # Randomly choose six example taxa for display.
+  slice_sample(n = 6) %>%
+  # Store only the taxon identifiers for filtering below.
+  pull(taxon)
+
 # Start from the long relative-abundance table.
 dat_rel %>%
   # Keep gut samples, selected example taxa, and non-zero abundance values.
@@ -610,6 +653,10 @@ dat_rel %>%
     geom_histogram(bins = 20, fill = "steelblue", color = "white") +
     # Give each taxon its own panel and scale because abundances can differ strongly.
     facet_wrap(~ label, scales = "free") +
+    # Label the plot so it can be interpreted without reading the code.
+    labs(x = "Relative abundance (non-zero values only)",
+         y = "Count",
+         title = "Right-skewed distributions in gut taxa") +
     # Use a simple high-contrast theme.
     theme_bw()
 ```
@@ -630,6 +677,9 @@ dat_rel %>%
     stat_qq(size = 0.8, alpha = 0.6) +
     stat_qq_line(color = "red", linetype = "dashed") +
     facet_wrap(~ label, scales = "free") +
+    labs(x = "Theoretical quantiles (normal)",
+         y = "Sample quantiles",
+         title = "Q–Q plots: departures from normality in gut taxa") +
     theme_bw()
 ```
 
@@ -651,6 +701,10 @@ dat_rel %>%
     stat_qq_line(color = "red", linetype = "dashed") +
     # Show each taxon separately with its own scale.
     facet_wrap(~ label, scales = "free") +
+    # Label the plot so the axes state that this is a normal-theory comparison.
+    labs(x = "Theoretical quantiles (normal)",
+         y = "Sample quantiles",
+         title = "Q–Q plots: departures from normality in gut taxa") +
     # Use a simple high-contrast theme.
     theme_bw()
 ```
@@ -743,10 +797,42 @@ wilcox_infant_enriched <- wilcox_results %>%
   arrange(log2_fc) %>%
   head(10)
 
+wilcox_infant_enriched
+```
+
+The first table orders taxa by the most negative `log2_fc`, so the top rows are the strongest infant-enriched candidates according to the mean relative-abundance ratio.
+
+```r
+dat_rel %>%
+  filter(taxon == wilcox_infant_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+This plot checks the strongest infant-enriched taxon directly in the raw relative-abundance data. The table gives the rank, but the plot reveals whether the difference is shared across samples or driven by a few points.
+
+```r
 wilcox_adult_enriched <- wilcox_results %>%
   select(taxon, genus, species, mean_adult, mean_infant, log2_fc, p_value, q_value) %>%
   arrange(-log2_fc) %>%
   head(10)
+
+wilcox_adult_enriched
+```
+
+The adult-enriched table is the same calculation in the opposite direction: the most positive `log2_fc` values appear first.
+
+```r
+dat_rel %>%
+  filter(taxon == wilcox_adult_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
 ```
 
 <details>
@@ -762,6 +848,24 @@ wilcox_infant_enriched <- wilcox_results %>%
   # Keep the top 10 rows.
   head(10)
 
+# Print the infant-enriched table so it appears in the rendered practical.
+wilcox_infant_enriched
+
+# Inspect the strongest infant-enriched taxon directly in the gut samples.
+dat_rel %>%
+  # Pull the top taxon ID from the table above.
+  filter(taxon == wilcox_infant_enriched %>% slice(1) %>% pull(taxon)) %>%
+  # Keep only gut samples for the age comparison.
+  filter(body_site == "gut") %>%
+  # Plot relative abundance by age.
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    # Suppress boxplot outlier symbols because all raw points are plotted.
+    geom_boxplot(outlier.shape = NA) +
+    # Add sample-level points so sparsity and outliers remain visible.
+    geom_jitter(width = 0.15) +
+    # Use a simple high-contrast theme.
+    theme_bw()
+
 # Find the taxa with the strongest positive log2 fold changes.
 wilcox_adult_enriched <- wilcox_results %>%
   # Keep the same columns so the two tables can be compared directly.
@@ -770,6 +874,24 @@ wilcox_adult_enriched <- wilcox_results %>%
   arrange(-log2_fc) %>%
   # Keep the top 10 rows.
   head(10)
+
+# Print the adult-enriched table so it appears in the rendered practical.
+wilcox_adult_enriched
+
+# Inspect the strongest adult-enriched taxon directly in the gut samples.
+dat_rel %>%
+  # Pull the top taxon ID from the adult-enriched table.
+  filter(taxon == wilcox_adult_enriched %>% slice(1) %>% pull(taxon)) %>%
+  # Keep only gut samples for the age comparison.
+  filter(body_site == "gut") %>%
+  # Plot relative abundance by age.
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    # Suppress boxplot outlier symbols because all raw points are plotted.
+    geom_boxplot(outlier.shape = NA) +
+    # Add sample-level points so the visual pattern can be checked.
+    geom_jitter(width = 0.15) +
+    # Use a simple high-contrast theme.
+    theme_bw()
 ```
 
 </details>
@@ -790,6 +912,51 @@ The volcano plot combines effect size and significance:
 - colour: adult-enriched, infant-enriched, or not significant
 
 Taxa in the upper-left are significant and infant-enriched. Taxa in the upper-right are significant and adult-enriched.
+
+```r
+# Volcano plot: Wilcoxon rank test
+wilcox_results %>%
+  mutate(
+    neg_log10_q = -log10(q_value),
+    direction = case_when(
+      q_value < 0.05 & log2_fc > 0 ~ "Adult-enriched",
+      q_value < 0.05 & log2_fc < 0 ~ "Infant-enriched",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = log2_fc, y = neg_log10_q, color = direction)) +
+    geom_point(alpha = 0.6, size = 2) +
+    scale_color_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB", "Not significant" = "grey60")) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "Log2 fold change (adult vs infant)", y = "-log10(q-value)", color = NULL,
+         title = "Wilcoxon rank test: age effect in gut microbiome") +
+    theme_bw()
+```
+
+The horizontal dashed line marks the `q_value = 0.05` threshold. Points above it pass the FDR threshold; points far from zero on the x-axis have larger estimated fold changes.
+
+```r
+# Bar chart of top significant taxa ranked by effect size (Wilcoxon)
+bind_rows(
+  wilcox_results %>% filter(q_value < 0.05) %>% arrange(log2_fc) %>% head(10),
+  wilcox_results %>% filter(q_value < 0.05) %>% arrange(-log2_fc) %>% head(10)
+) %>%
+  distinct() %>%
+  mutate(
+    label = paste(genus, species),
+    direction = ifelse(log2_fc > 0, "Adult-enriched", "Infant-enriched")
+  ) %>%
+  ggplot(aes(x = reorder(label, log2_fc), y = log2_fc, fill = direction)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
+    labs(x = NULL, y = "Log2 fold change (adult vs infant)", fill = NULL,
+         title = "Top differentially abundant taxa (Wilcoxon)") +
+    theme_bw()
+```
+
+The bar chart removes non-significant taxa and ranks the largest significant effects in both directions. Use it as a readable shortlist, not as a replacement for checking the raw abundance plots.
 
 > ⚠️ **Limitation of the Wilcoxon test**
 > The Wilcoxon test treats every taxon independently, does not model additional covariates such as health status, and does not address the compositional structure of relative abundance data. The next sections address these limitations.
@@ -902,6 +1069,95 @@ The GLM and Wilcoxon approaches should often agree on the strongest taxa, but th
 | Wilcoxon | Rank order of abundances | Robust to skewness and outliers | Cannot include covariates |
 | GLM | Log-transformed abundance values | Provides model estimates and standard errors | Still sensitive to model assumptions |
 
+The next chunk lists taxa with the smallest adult/infant fold changes. These are the strongest infant-enriched candidates in the age-only log-transformed model.
+
+```r
+glm_infant_enriched <- glm_age_results %>%
+  select(taxon, genus, species, estimate, fold_change_adult_vs_infant, std.error, statistic, p.value, q_value) %>%
+  arrange(fold_change_adult_vs_infant) %>%
+  head(10)
+
+glm_infant_enriched
+```
+
+```r
+dat_rel %>%
+  filter(taxon == glm_infant_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+Inspecting the top GLM hit on the raw relative-abundance scale helps explain why the model ranked it highly. Pay attention to zeros, outliers, and unequal spread between age groups.
+
+The next chunk does the same for adult-enriched taxa.
+
+```r
+glm_adult_enriched <- glm_age_results %>%
+  select(taxon, genus, species, estimate, fold_change_adult_vs_infant, std.error, statistic, p.value, q_value) %>%
+  arrange(-fold_change_adult_vs_infant) %>%
+  head(10)
+
+glm_adult_enriched
+```
+
+```r
+dat_rel %>%
+  filter(taxon == glm_adult_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+The GLM volcano plot uses the model estimate on the x-axis rather than the Wilcoxon `log2_fc`. The estimate is in log10 relative-abundance units, so compare directions and rankings rather than treating the x-axis as directly interchangeable with the Wilcoxon volcano plot.
+
+```r
+# Volcano plot: GLM (unadjusted)
+glm_age_results %>%
+  mutate(
+    neg_log10_q = -log10(q_value),
+    direction = case_when(
+      q_value < 0.05 & estimate > 0 ~ "Adult-enriched",
+      q_value < 0.05 & estimate < 0 ~ "Infant-enriched",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = estimate, y = neg_log10_q, color = direction)) +
+    geom_point(alpha = 0.6, size = 2) +
+    scale_color_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB", "Not significant" = "grey60")) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "GLM estimate (log10 relative abundance, adult vs infant)", y = "-log10(q-value)", color = NULL,
+         title = "GLM: age effect in gut microbiome") +
+    theme_bw()
+```
+
+```r
+# Bar chart of top significant taxa ranked by effect size (GLM)
+bind_rows(
+  glm_age_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
+  glm_age_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
+) %>%
+  distinct() %>%
+  mutate(
+    label = paste(genus, species),
+    direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
+  ) %>%
+  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
+    labs(x = NULL, y = "GLM estimate (log10 relative abundance)", fill = NULL,
+         title = "Top differentially abundant taxa (GLM)") +
+    theme_bw()
+```
+
+The ranked GLM bar chart is useful for comparing which taxa remain prominent when abundance values, not just ranks, are modelled.
+
 > 🧠 Discussion
 > Which taxa are found by both methods? Which taxa appear in one method only? Method-specific hits deserve closer inspection because they may be driven by zeros, outliers, or distributional assumptions.
 
@@ -993,6 +1249,97 @@ Compare the adjusted and unadjusted GLM results:
 - taxa whose effects shrink may be partly confounded by health status,
 - taxa that change direction require careful interpretation,
 - taxa that lose significance after adjustment should not be described as clean age effects.
+
+The adjusted infant-enriched table ranks taxa by the smallest status-adjusted adult/infant fold changes.
+
+```r
+glm_adj_infant_enriched <- glm_age_adjusted_status_results %>%
+  select(taxon, genus, species, estimate, fold_change_adult_vs_infant_adjusted_for_status, std.error, statistic, p.value, q_value) %>%
+  arrange(fold_change_adult_vs_infant_adjusted_for_status) %>%
+  head(10)
+
+glm_adj_infant_enriched
+```
+
+```r
+dat_rel %>%
+  filter(taxon == glm_adj_infant_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+This raw plot is still marginal over health status, so treat it as a visual check of the top taxon rather than the adjusted estimate itself.
+
+The adjusted adult-enriched table ranks taxa in the opposite direction.
+
+```r
+glm_adj_adult_enriched <- glm_age_adjusted_status_results %>%
+  select(taxon, genus, species, estimate, fold_change_adult_vs_infant_adjusted_for_status, std.error, statistic, p.value, q_value) %>%
+  arrange(-fold_change_adult_vs_infant_adjusted_for_status) %>%
+  head(10)
+
+glm_adj_adult_enriched
+```
+
+```r
+dat_rel %>%
+  filter(taxon == glm_adj_adult_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = rel_abund, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+If the raw age plot and adjusted model disagree, the discrepancy is a useful clue that `status` is associated with the taxon's abundance pattern.
+
+```r
+# Volcano plot: GLM adjusted for health status
+glm_age_adjusted_status_results %>%
+  mutate(
+    neg_log10_q = -log10(q_value),
+    direction = case_when(
+      q_value < 0.05 & estimate > 0 ~ "Adult-enriched",
+      q_value < 0.05 & estimate < 0 ~ "Infant-enriched",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = estimate, y = neg_log10_q, color = direction)) +
+    geom_point(alpha = 0.6, size = 2) +
+    scale_color_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB", "Not significant" = "grey60")) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "GLM estimate (log10 relative abundance, adult vs infant)", y = "-log10(q-value)", color = NULL,
+         title = "GLM adjusted for status: age effect in gut microbiome") +
+    theme_bw()
+```
+
+Compare this volcano plot to the unadjusted GLM version. Taxa that move downward after adjustment have weaker age evidence once health status is accounted for.
+
+```r
+# Bar chart of top significant taxa ranked by effect size (GLM adjusted)
+bind_rows(
+  glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
+  glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
+) %>%
+  distinct() %>%
+  mutate(
+    label = paste(genus, species),
+    direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
+  ) %>%
+  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
+    labs(x = NULL, y = "GLM estimate adjusted (log10 relative abundance)", fill = NULL,
+         title = "Top differentially abundant taxa (GLM adjusted for status)") +
+    theme_bw()
+```
+
+Taxa that stay large and significant after adjustment are stronger age-associated candidates than taxa that only appear in the unadjusted model.
 
 > 💡 **Key concept: confounding**
 > A confounder is a variable associated with both the predictor and the outcome. Adjusting for `status` helps separate age-associated microbial patterns from disease-associated microbial patterns.
@@ -1219,6 +1566,97 @@ clr_age_adjusted_status_results <- dat_clr %>%
 
 The `ageadult` estimate is now a difference in CLR values between adults and infants, adjusted for health status.
 
+The next table lists the strongest infant-enriched taxa on the CLR scale. Negative estimates indicate lower CLR values in adults than infants, after status adjustment.
+
+```r
+clr_infant_enriched <- clr_age_adjusted_status_results %>%
+  select(taxon, genus, species, estimate, std.error, statistic, p.value, q_value) %>%
+  arrange(estimate) %>%
+  head(10)
+
+clr_infant_enriched
+```
+
+```r
+dat_clr %>%
+  filter(taxon == clr_infant_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = clr, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+The y-axis is CLR, not relative abundance. A high CLR value means the taxon is high relative to the sample's whole-community geometric mean.
+
+The adult-enriched CLR table sorts the largest positive adjusted age estimates first.
+
+```r
+clr_adult_enriched <- clr_age_adjusted_status_results %>%
+  select(taxon, genus, species, estimate, std.error, statistic, p.value, q_value) %>%
+  arrange(-estimate) %>%
+  head(10)
+
+clr_adult_enriched
+```
+
+```r
+dat_clr %>%
+  filter(taxon == clr_adult_enriched %>% slice(1) %>% pull(taxon)) %>%
+  filter(body_site == "gut") %>%
+  ggplot(aes(x = age, y = clr, fill = age)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.15) +
+    theme_bw()
+```
+
+The CLR volcano plot is the compositionally aware counterpart to the earlier GLM volcano plots.
+
+```r
+# Volcano plot: CLR-based linear model
+clr_age_adjusted_status_results %>%
+  mutate(
+    neg_log10_q = -log10(q_value),
+    direction = case_when(
+      q_value < 0.05 & estimate > 0 ~ "Adult-enriched",
+      q_value < 0.05 & estimate < 0 ~ "Infant-enriched",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = estimate, y = neg_log10_q, color = direction)) +
+    geom_point(alpha = 0.6, size = 2) +
+    scale_color_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB", "Not significant" = "grey60")) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "CLR estimate (adult vs infant)", y = "-log10(q-value)", color = NULL,
+         title = "Compositional analysis (CLR): age effect in gut microbiome") +
+    theme_bw()
+```
+
+Use this plot to identify taxa with both strong CLR effect sizes and FDR-supported age differences.
+
+```r
+# Bar chart of top significant taxa ranked by CLR effect size
+bind_rows(
+  clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
+  clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
+) %>%
+  distinct() %>%
+  mutate(
+    label = paste(genus, species),
+    direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
+  ) %>%
+  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
+    labs(x = NULL, y = "CLR estimate (adult vs infant)", fill = NULL,
+         title = "Top differentially abundant taxa (CLR)") +
+    theme_bw()
+```
+
+The CLR ranking is often the most useful single shortlist because it combines covariate adjustment with a compositional response scale.
+
 > 💡 **Why this is the most compositionally appropriate model in the practical**
 > The CLR model no longer treats raw relative abundances as independent absolute measurements. Instead, it models each taxon relative to the whole-community geometric mean. Distances in CLR space correspond to Aitchison distance, the standard geometry for compositional data.
 
@@ -1296,6 +1734,7 @@ This creates one comparison table where each taxon has effect sizes and q-values
 ### 🔹 Step 2 — Count significant taxa per method
 
 ```r
+# Significant taxa per method (q < 0.05)
 sig_summary <- tibble(
   method = c("Wilcoxon", "GLM", "GLM adjusted", "CLR"),
   n_significant = c(
@@ -1339,6 +1778,7 @@ Methods that detect many taxa are not automatically better. They may be more sen
 ### 🔹 Step 3 — Identify taxa significant in all four methods
 
 ```r
+# Taxa significant in all four methods
 all_methods_sig <- comparison_results %>%
   filter(wilcox_q < 0.05, glm_q < 0.05, glm_adj_q < 0.05, clr_q < 0.05) %>%
   select(genus, species, wilcox_q, glm_q, glm_adj_q, clr_q) %>%
@@ -1384,6 +1824,154 @@ The Rmd uses several plots to compare methods:
 | Significant-method count bar chart | How many methods support each taxon? |
 | Directional heatmap | Are taxa consistently adult- or infant-enriched across methods? |
 | Wilcoxon vs CLR scatter plot | Do the most different methods agree on effect direction? |
+
+First, compare the unadjusted and status-adjusted GLM age estimates.
+
+```r
+# Effect size comparison: GLM unadjusted vs GLM adjusted for status
+comparison_results %>%
+  ggplot(aes(x = glm_estimate, y = glm_adj_estimate)) +
+    geom_point(alpha = 0.5) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(
+      x = "GLM estimate (unadjusted)",
+      y = "GLM estimate (adjusted for status)",
+      title = "Effect of adjusting for health status"
+    ) +
+    theme_bw()
+```
+
+Points on the diagonal are taxa whose age estimates barely change after adjustment. Points far above or below the diagonal are the taxa most affected by health status.
+
+Next, compare the adjusted relative-abundance GLM with the CLR model.
+
+```r
+# Effect size comparison: GLM adjusted vs CLR
+comparison_results %>%
+  ggplot(aes(x = glm_adj_estimate, y = clr_estimate)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    labs(
+      x = "GLM estimate (adjusted, log10 relative abundance)",
+      y = "CLR estimate",
+      title = "GLM vs compositional (CLR) effect sizes"
+    ) +
+    theme_bw()
+```
+
+Taxa that change direction between these axes need careful interpretation because relative-abundance and CLR models are asking related but not identical questions.
+
+The next plot counts how many methods support each taxon.
+
+```r
+# Q-value concordance across all methods
+comparison_results %>%
+  mutate(
+    sig_wilcox  = wilcox_q  < 0.05,
+    sig_glm     = glm_q     < 0.05,
+    sig_glm_adj = glm_adj_q < 0.05,
+    sig_clr     = clr_q     < 0.05,
+    n_methods_significant = sig_wilcox + sig_glm + sig_glm_adj + sig_clr
+  ) %>%
+  count(n_methods_significant) %>%
+  filter(!is.na(n_methods_significant)) %>% 
+  ggplot(aes(x = factor(n_methods_significant), y = n)) +
+    geom_col(fill = "steelblue") +
+    labs(
+      x = "Number of methods detecting significance (q < 0.05)",
+      y = "Number of taxa",
+      title = "Concordance of significance across methods"
+    ) +
+    theme_bw()
+```
+
+This count separates taxa supported by several analytical assumptions from taxa detected by only one method.
+
+The heatmap below shows both significance strength and enrichment direction for taxa significant in at least one method. Positive signed values indicate adult enrichment; negative signed values indicate infant enrichment.
+
+```r
+# Significance heatmap with directionality: signed -log10(q) across all methods for taxa significant in at least one
+heatmap_data <- comparison_results %>%
+  filter(wilcox_q < 0.05 | glm_q < 0.05 | glm_adj_q < 0.05 | clr_q < 0.05) %>%
+  mutate(label = paste(genus, species)) %>%
+  select(label,
+         wilcox_q, glm_q, glm_adj_q, clr_q,
+         wilcox_log2fc, glm_estimate, glm_adj_estimate, clr_estimate) %>%
+  pivot_longer(cols = c(wilcox_q, glm_q, glm_adj_q, clr_q),
+               names_to = "method", values_to = "q_value") %>%
+  mutate(
+    direction = case_when(
+      method == "wilcox_q"    ~ wilcox_log2fc,
+      method == "glm_q"       ~ glm_estimate,
+      method == "glm_adj_q"   ~ glm_adj_estimate,
+      method == "clr_q"       ~ clr_estimate
+    ),
+    signed_neg_log10_q = sign(direction) * pmin(-log10(q_value), 10),
+    method = factor(method,
+                    levels = c("wilcox_q", "glm_q", "glm_adj_q", "clr_q"),
+                    labels = c("Wilcoxon", "GLM", "GLM adjusted", "CLR"))
+  )
+
+taxon_order <- heatmap_data %>%
+  group_by(label) %>%
+  summarise(mean_signed = mean(signed_neg_log10_q, na.rm = TRUE), .groups = "drop") %>%
+  arrange(mean_signed) %>%
+  pull(label)
+
+heatmap_data %>%
+  mutate(label = factor(label, levels = taxon_order)) %>%
+  ggplot(aes(x = method, y = label, fill = signed_neg_log10_q)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(aes(label = ifelse(q_value < 0.05, "*", "")), color = "black", size = 3) +
+    scale_fill_gradient2(
+      low = "#3498DB", mid = "white", high = "#C0392B",
+      midpoint = 0, limits = c(-10, 10),
+      name = "Signed\n-log10(q)",
+      breaks = c(-10, -5, 0, 5, 10),
+      labels = c("-10\n(infant)", "-5", "0", "5", "10\n(adult)")
+    ) +
+    labs(x = "Method", y = "Taxon",
+         title = "Significance and directionality across methods (q < 0.05 marked with *)",
+         subtitle = "Blue = infant-enriched, Red = adult-enriched") +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 7))
+```
+
+Rows with consistent colour across methods tell a clearer biological story than rows that switch direction.
+
+Finally, compare the simplest univariate method with the compositionally aware CLR model.
+
+```r
+# Cross-method effect size agreement: Wilcoxon log2FC vs CLR estimate
+comparison_results %>%
+  mutate(
+    sig_category = case_when(
+      wilcox_q < 0.05 & clr_q < 0.05 ~ "Both significant",
+      wilcox_q < 0.05               ~ "Wilcoxon only",
+      clr_q < 0.05                  ~ "CLR only",
+      TRUE                          ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = wilcox_log2fc, y = clr_estimate, color = sig_category)) +
+    geom_point(alpha = 0.6, size = 2) +
+    scale_color_manual(values = c(
+      "Both significant" = "#E74C3C",
+      "Wilcoxon only"    = "#E67E22",
+      "CLR only"         = "#3498DB",
+      "Not significant"  = "grey70"
+    )) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "Wilcoxon log2 fold change (adult vs infant)",
+         y = "CLR estimate (adult vs infant)",
+         color = NULL,
+         title = "Effect size agreement: Wilcoxon vs CLR") +
+    theme_bw()
+```
+
+Points in the same-sign quadrants agree on enrichment direction. Points with opposite signs are the taxa that most need manual inspection before interpretation.
 
 > 💡 **Most robust interpretation strategy**
 > Prioritise taxa with consistent direction, low q-values, and agreement across multiple methods. Treat taxa detected by only one method as hypotheses that require follow-up, not as final conclusions.
@@ -1546,6 +2134,87 @@ In the biplot:
 | Direction of the `status` arrow | Main axis of health-status-associated community change |
 | Taxon arrows | Taxa contributing strongly to the constrained axes |
 | Clustering by colour | Evidence that age structures the gut microbiome |
+
+```r
+eig <- rda_age$CCA$eig
+pct1 <- round(eig[1] / rda_age$tot.chi * 100, 1)
+pct2 <- round(eig[2] / rda_age$tot.chi * 100, 1)
+
+site_scores <- scores(rda_age, display = "sites") %>%
+  as.data.frame() %>%
+  rownames_to_column("sample_id") %>%
+  left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
+
+biplot_scores <- scores(rda_age, display = "bp") %>%
+  as.data.frame() %>%
+  rownames_to_column("variable")
+
+top_species_scores <- scores(rda_age, display = "species") %>%
+  as.data.frame() %>%
+  rownames_to_column("taxon") %>%
+  inner_join(rda_taxa %>% head(10), by = "taxon") %>%
+  left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
+  mutate(label = paste(genus, species))
+
+# Scale arrows so the longest reaches ~80 % of the site score range
+site_range <- max(abs(c(site_scores$RDA1, site_scores$RDA2)))
+arrow_scale   <- site_range * 0.8 /
+  max(sqrt(biplot_scores$RDA1^2   + biplot_scores$RDA2^2))
+species_scale <- site_range * 0.6 /
+  max(sqrt(top_species_scores$RDA1^2 + top_species_scores$RDA2^2))
+
+biplot_scores      <- biplot_scores      %>% mutate(RDA1 = RDA1 * arrow_scale,   RDA2 = RDA2 * arrow_scale)
+top_species_scores <- top_species_scores %>% mutate(RDA1 = RDA1 * species_scale, RDA2 = RDA2 * species_scale)
+
+ggplot() +
+  geom_point(data = site_scores,
+             aes(x = RDA1, y = RDA2, color = age, shape = status),
+             size = 3, alpha = 0.85) +
+  geom_segment(data = top_species_scores,
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2),
+               arrow = arrow(length = unit(0.15, "cm")),
+               color = "grey70", linewidth = 0.5) +
+  geom_text(data = top_species_scores,
+            aes(x = RDA1 * 1.15, y = RDA2 * 1.15, label = label),
+            size = 2.5, color = "grey50") +
+  geom_segment(data = biplot_scores,
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", linewidth = 1) +
+  geom_text(data = biplot_scores,
+            aes(x = RDA1 * 1.15, y = RDA2 * 1.15, label = variable),
+            size = 3.5, fontface = "bold", color = "black") +
+  scale_color_manual(values = c("adult" = "#E74C3C", "infant" = "#3498DB")) +
+  scale_shape_manual(values = c("healthy" = 16, "sick" = 17)) +
+  labs(x = paste0("RDA1 (", pct1, "% of total variance)"),
+       y = paste0("RDA2 (", pct2, "% of total variance)"),
+       color = "Age", shape = "Status",
+       title = "RDA biplot: gut microbiome constrained by age and health status") +
+  theme_bw()
+```
+
+The code rescales taxon and metadata arrows so they can be seen on the same plot as the sample scores. The arrow scaling is only for visualisation; it does not change the fitted RDA model.
+
+The final RDA plot ranks the strongest taxon loadings directly.
+
+```r
+rda_taxa %>%
+  head(20) %>%
+  left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
+  mutate(
+    label = paste(genus, species),
+    direction = ifelse(rda1_loading > 0, "Adult-associated", "Infant-associated")
+  ) %>%
+  ggplot(aes(x = reorder(label, rda1_loading), y = rda1_loading, fill = direction)) +
+    geom_col() +
+    coord_flip() +
+    scale_fill_manual(values = c("Adult-associated" = "#E74C3C", "Infant-associated" = "#3498DB")) +
+    labs(x = NULL, y = "RDA1 loading", fill = NULL,
+         title = "Top 20 taxa by RDA1 loading magnitude") +
+    theme_bw()
+```
+
+This bar chart is easier to read than the biplot when the goal is simply to identify which taxa drive the first constrained axis.
 
 > 🧠 Discussion
 > Do the top RDA taxa overlap with the taxa significant in all four univariate methods? Agreement between the RDA loadings and the differential abundance tests gives stronger evidence that those taxa are genuine drivers of the infant-adult gut microbiome difference.

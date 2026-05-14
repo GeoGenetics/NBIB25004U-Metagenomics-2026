@@ -40,7 +40,6 @@ library(tibble)
 library(purrr)
 library(stringr)
 library(ggplot2)
-#library(patchwork)
 library(tidyverse)
 library(ggh4x)
 library(lme4)
@@ -48,12 +47,13 @@ library(lmerTest)
 library(broom.mixed)
 library(microbiome)
 ```
+
 ## Load and inspect the data
 
 Details: [1. Load and Inspect the Data][wiki-load]. Load the saved `phyloseq` object, derive the practical metadata variables, and confirm that the abundance table, taxonomy table and sample metadata are present.
 
 ```{r}
-ps <- readRDS("../data/phyloseq_augmented.rds")
+ps <- readRDS("../data/phyloseq_augmented_v2.rds")
 
 sample_metadata <- sample_data(ps) %>%
   as("data.frame") %>%
@@ -109,6 +109,7 @@ dat_rel <- otu_rel %>%
   left_join(meta_rel %>% as("data.frame") %>% rownames_to_column("sample_id"), by = "sample_id") %>%
   left_join(tax_rel %>% rownames_to_column("taxon"), by = "taxon")
 ```
+
 ## Explore individual taxa
 
 Details: [3. Explore Individual Taxa][wiki-single-taxon]. Change `one_taxon` to inspect another taxon before running formal tests.

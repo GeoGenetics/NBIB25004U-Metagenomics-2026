@@ -83,7 +83,7 @@ Binder sessions are temporary. Any edits, rendered HTML files, or notes created 
 > ```
 > NBIB25004U-Metagenomics-2026/
 > ├── data/
-> │   ├── phyloseq_augmented_v2.rds          # Main input object for this practical
+> │   ├── phyloseq_augmented_v3.rds          # Main input object for this practical
 > │   ├── mag_table.tsv                   # Abundance table used in earlier sessions
 > │   ├── sample_data.tsv                 # Sample metadata
 > │   └── tax_table.tsv                   # Taxonomic annotation
@@ -192,26 +192,7 @@ The most important packages for this practical are `phyloseq`, `tidyverse`, `veg
 ### 🔹 Step 3 — Load the phyloseq object
 
 ```r
-ps <- readRDS("../data/phyloseq_augmented_v2.rds")
-
-sample_metadata <- sample_data(ps) %>%
-  as("data.frame") %>%
-  rownames_to_column("sample_id") %>%
-  mutate(
-    body_site_original = as.character(body_site),
-    body_site = if_else(str_detect(body_site_original, "^gut_"), "gut", body_site_original),
-    age = case_when(
-      str_detect(body_site_original, "infant") ~ "infant",
-      str_detect(body_site_original, "adult") ~ "adult",
-      TRUE ~ NA_character_
-    ),
-    status = if_else(as.logical(simulated), "sick", "healthy"),
-    age = factor(age, levels = c("infant", "adult")),
-    status = factor(status, levels = c("healthy", "sick"))
-  ) %>%
-  column_to_rownames("sample_id")
-
-sample_data(ps) <- sample_data(sample_metadata)
+ps <- readRDS("../data/phyloseq_augmented_v3.rds")
 
 ps
 sample_data(ps)
@@ -224,33 +205,7 @@ sample_variables(ps)
 
 ```r
 # Read the saved phyloseq object from the course data directory.
-ps <- readRDS("../data/phyloseq_augmented_v2.rds")
-
-# Convert the compact teaching metadata into the variables used below.
-sample_metadata <- sample_data(ps) %>%
-  as("data.frame") %>%
-  rownames_to_column("sample_id") %>%
-  mutate(
-    # Preserve the original body-site labels from the input object.
-    body_site_original = as.character(body_site),
-    # Collapse gut_adult and gut_infant into the common body_site value gut.
-    body_site = if_else(str_detect(body_site_original, "^gut_"), "gut", body_site_original),
-    # Derive the age comparison used in the gut differential-abundance tests.
-    age = case_when(
-      str_detect(body_site_original, "infant") ~ "infant",
-      str_detect(body_site_original, "adult") ~ "adult",
-      TRUE ~ NA_character_
-    ),
-    # Derive the teaching health-status variable used for covariate adjustment.
-    status = if_else(as.logical(simulated), "sick", "healthy"),
-    # Set reference levels used by the model formulas later in the practical.
-    age = factor(age, levels = c("infant", "adult")),
-    status = factor(status, levels = c("healthy", "sick"))
-  ) %>%
-  column_to_rownames("sample_id")
-
-# Replace the original sample metadata with the augmented table.
-sample_data(ps) <- sample_data(sample_metadata)
+ps <- readRDS("../data/phyloseq_augmented_v3.rds")
 
 # Print a compact summary of the phyloseq object, including sample and taxon counts.
 ps
@@ -278,12 +233,11 @@ The key metadata variables for this practical are:
 
 | Variable | Role in the practical |
 | --- | --- |
-| `body_site_original` | Original input label, such as `gut_adult`, `gut_infant`, or `vaginal` |
 | `body_site` | Used to compare broad community composition and then focus on gut samples |
 | `age` | Main variable of interest: adult vs infant |
 | `status` | Potential confounder: healthy vs sick |
 
-The input object stores the teaching groups compactly. The practical therefore derives `age` from the original gut labels, collapses `gut_adult` and `gut_infant` into `body_site = gut`, and creates a teaching `status` variable from the `simulated` flag so that later models can demonstrate covariate adjustment.
+The `phyloseq_augmented_v3.rds` object already includes the derived metadata variables `body_site`, `age`, and `status` used throughout the practical.
 
 > 💡 **Why start with inspection?**
 > Many downstream errors in microbiome analysis come from mismatched sample names, missing metadata, or unexpected factor levels. Inspecting the object before modelling confirms that the data structure matches the biological question.
@@ -323,9 +277,9 @@ In this practical, relative abundance is used for visualisation and some first-p
 
 ```r
 ps_rel <- transform_sample_counts(ps, function(x) x / sum(x))
-otu_rel <- as.data.frame(t(otu_table(ps_rel)))
-meta_rel <- as.data.frame(sample_data(ps_rel))
-tax_rel <- as.data.frame(tax_table(ps_rel))
+otu_rel <- as(otu_table(ps_rel), "matrix") %>% t() %>% as.data.frame()
+meta_rel <- as(sample_data(ps_rel), "matrix") %>% as.data.frame()
+tax_rel <- as(tax_table(ps_rel), "matrix") %>% as.data.frame()
 ```
 
 <details>
@@ -337,13 +291,13 @@ tax_rel <- as.data.frame(tax_table(ps_rel))
 ps_rel <- transform_sample_counts(ps, function(x) x / sum(x))
 
 # Extract the relative-abundance table and transpose it so samples are rows.
-otu_rel <- as.data.frame(t(otu_table(ps_rel)))
+otu_rel <- as(otu_table(ps_rel), "matrix") %>% t() %>% as.data.frame()
 
 # Extract sample metadata as a regular data frame for joining and plotting.
-meta_rel <- as.data.frame(sample_data(ps_rel))
+meta_rel <- as(sample_data(ps_rel), "matrix") %>% as.data.frame()
 
 # Extract the taxonomy table as a regular data frame for adding taxonomic labels.
-tax_rel <- as.data.frame(tax_table(ps_rel))
+tax_rel <- as(tax_table(ps_rel), "matrix") %>% as.data.frame()
 ```
 
 </details>
@@ -610,7 +564,7 @@ example_taxa <- dat_rel %>%
 
 dat_rel %>%
   filter(body_site == "gut", taxon %in% example_taxa, rel_abund > 0) %>%
-  mutate(label = paste(genus, species)) %>%
+  mutate(label = species) %>%
   ggplot(aes(x = rel_abund)) +
     geom_histogram(bins = 20, fill = "steelblue", color = "white") +
     facet_wrap(~ label, scales = "free") +
@@ -645,8 +599,8 @@ example_taxa <- dat_rel %>%
 dat_rel %>%
   # Keep gut samples, selected example taxa, and non-zero abundance values.
   filter(body_site == "gut", taxon %in% example_taxa, rel_abund > 0) %>%
-  # Combine genus and species into a readable facet label.
-  mutate(label = paste(genus, species)) %>%
+  # Use species name as the facet label.
+  mutate(label = species) %>%
   # Plot the distribution of non-zero relative abundances.
   ggplot(aes(x = rel_abund)) +
     # Draw one histogram per taxon.
@@ -672,7 +626,7 @@ Even when zeros are removed, most taxa remain strongly right-skewed. This means 
 ```r
 dat_rel %>%
   filter(body_site == "gut", taxon %in% example_taxa) %>%
-  mutate(label = paste(genus, species)) %>%
+  mutate(label = species) %>%
   ggplot(aes(sample = rel_abund)) +
     stat_qq(size = 0.8, alpha = 0.6) +
     stat_qq_line(color = "red", linetype = "dashed") +
@@ -691,8 +645,8 @@ dat_rel %>%
 dat_rel %>%
   # Keep gut samples and the selected example taxa.
   filter(body_site == "gut", taxon %in% example_taxa) %>%
-  # Combine genus and species into a readable facet label.
-  mutate(label = paste(genus, species)) %>%
+  # Use species name as the facet label.
+  mutate(label = species) %>%
   # Build Q-Q plots by comparing observed abundances to normal-theory quantiles.
   ggplot(aes(sample = rel_abund)) +
     # Plot the observed quantiles.
@@ -944,7 +898,7 @@ bind_rows(
 ) %>%
   distinct() %>%
   mutate(
-    label = paste(genus, species),
+    label = species,
     direction = ifelse(log2_fc > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
   ggplot(aes(x = reorder(label, log2_fc), y = log2_fc, fill = direction)) +
@@ -1144,7 +1098,7 @@ bind_rows(
 ) %>%
   distinct() %>%
   mutate(
-    label = paste(genus, species),
+    label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
   ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
@@ -1327,7 +1281,7 @@ bind_rows(
 ) %>%
   distinct() %>%
   mutate(
-    label = paste(genus, species),
+    label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
   ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
@@ -1433,9 +1387,9 @@ ps_clr <- transform_sample_counts(ps, function(x) {
   log(x) - mean(log(x))
 })
 
-otu_clr <- as.data.frame(t(otu_table(ps_clr)))
-meta_clr <- as.data.frame(sample_data(ps_clr))
-tax_clr <- as.data.frame(tax_table(ps_clr))
+otu_clr <- as(otu_table(ps_clr), "matrix") %>% t() %>% as.data.frame()
+meta_clr <- as(sample_data(ps_clr), "matrix") %>% as.data.frame()
+tax_clr <- as(tax_table(ps_clr), "matrix") %>% as.data.frame()
 ```
 
 <details>
@@ -1451,13 +1405,13 @@ ps_clr <- transform_sample_counts(ps, function(x) {
 })
 
 # Extract the CLR-transformed abundance table and transpose it so samples are rows.
-otu_clr <- as.data.frame(t(otu_table(ps_clr)))
+otu_clr <- as(otu_table(ps_clr), "matrix") %>% t() %>% as.data.frame()
 
 # Extract sample metadata for later joins and model design matrices.
-meta_clr <- as.data.frame(sample_data(ps_clr))
+meta_clr <- as(sample_data(ps_clr), "matrix") %>% as.data.frame()
 
 # Extract taxonomic annotations for labelling CLR results.
-tax_clr <- as.data.frame(tax_table(ps_clr))
+tax_clr <- as(tax_table(ps_clr), "matrix") %>% as.data.frame()
 ```
 
 </details>
@@ -1643,7 +1597,7 @@ bind_rows(
 ) %>%
   distinct() %>%
   mutate(
-    label = paste(genus, species),
+    label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
   ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
@@ -1895,7 +1849,7 @@ The heatmap below shows both significance strength and enrichment direction for 
 # Significance heatmap with directionality: signed -log10(q) across all methods for taxa significant in at least one
 heatmap_data <- comparison_results %>%
   filter(wilcox_q < 0.05 | glm_q < 0.05 | glm_adj_q < 0.05 | clr_q < 0.05) %>%
-  mutate(label = paste(genus, species)) %>%
+  mutate(label = species) %>%
   select(label,
          wilcox_q, glm_q, glm_adj_q, clr_q,
          wilcox_log2fc, glm_estimate, glm_adj_estimate, clr_estimate) %>%
@@ -2154,7 +2108,7 @@ top_species_scores <- scores(rda_age, display = "species") %>%
   rownames_to_column("taxon") %>%
   inner_join(rda_taxa %>% head(10), by = "taxon") %>%
   left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
-  mutate(label = paste(genus, species))
+  mutate(label = species)
 
 # Scale arrows so the longest reaches ~80 % of the site score range
 site_range <- max(abs(c(site_scores$RDA1, site_scores$RDA2)))
@@ -2202,7 +2156,7 @@ rda_taxa %>%
   head(20) %>%
   left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
   mutate(
-    label = paste(genus, species),
+    label = species,
     direction = ifelse(rda1_loading > 0, "Adult-associated", "Infant-associated")
   ) %>%
   ggplot(aes(x = reorder(label, rda1_loading), y = rda1_loading, fill = direction)) +

@@ -23,8 +23,9 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 [wiki-fdr]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-8-control-false-discoveries-with-fdr
 [wiki-clr]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-9-compositional-analysis-with-clr-transformation
 [wiki-compare]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-10-compare-differential-abundance-methods
-[wiki-rda]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-11-constrained-ordination-with-rda
-[wiki-read-results]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-12-how-to-read-the-practical-results
+[wiki-pca]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-11-pca-of-clr-transformed-gut-profiles
+[wiki-rda]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-12-constrained-ordination-with-rda
+[wiki-read-results]: https://github.com/GeoGenetics/NBIB25004U-Metagenomics-2026/wiki/Week-21-practical-sessions#-13-how-to-read-the-practical-results
 
 ## Loading of required libraries
 
@@ -90,6 +91,10 @@ dat_rel <- otu_rel %>%
   left_join(meta_rel %>% as("data.frame") %>% rownames_to_column("sample_id"), by = "sample_id") %>%
   left_join(tax_rel %>% rownames_to_column("taxon"), by = "taxon")
 ```
+
+# Univariate statistics
+
+These sections analyse taxa one at a time. Extended explanations are in the linked wiki sections.
 
 ## Explore individual taxa
 
@@ -264,10 +269,10 @@ wilcox_results %>%
 ```
 Use the volcano plot to identify taxa that are both large-effect and statistically supported.
 
-The next plot ranks significant taxa by Wilcoxon effect size.
+The next plot shows Wilcoxon effect size on the x-axis and orders taxa by q-value.
 
 ```{r}
-# Bar chart of top significant taxa ranked by effect size (Wilcoxon)
+# Bar chart of top significant taxa ordered by q-value (Wilcoxon)
 bind_rows(
   wilcox_results %>% filter(q_value < 0.05) %>% arrange(log2_fc) %>% head(10),
   wilcox_results %>% filter(q_value < 0.05) %>% arrange(-log2_fc) %>% head(10)
@@ -277,7 +282,7 @@ bind_rows(
     label = species,
     direction = ifelse(log2_fc > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, log2_fc), y = log2_fc, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = log2_fc, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -384,10 +389,10 @@ glm_age_results %>%
 ```
 Compare the overall pattern with the Wilcoxon volcano plot, remembering the effect-size scales differ.
 
-The next plot ranks significant taxa by GLM estimate.
+The next plot shows GLM effect size on the x-axis and orders taxa by q-value.
 
 ```{r}
-# Bar chart of top significant taxa ranked by effect size (GLM)
+# Bar chart of top significant taxa ordered by q-value (GLM)
 bind_rows(
   glm_age_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   glm_age_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -397,7 +402,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -505,10 +510,10 @@ glm_age_adjusted_status_results %>%
 ```
 Compare this to the unadjusted GLM volcano to see which taxa move after adjustment.
 
-The next plot ranks significant taxa by adjusted GLM estimate.
+The next plot shows adjusted GLM effect size on the x-axis and orders taxa by q-value.
 
 ```{r}
-# Bar chart of top significant taxa ranked by effect size (GLM adjusted)
+# Bar chart of top significant taxa ordered by q-value (GLM adjusted)
 bind_rows(
   glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -518,7 +523,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -642,10 +647,10 @@ clr_age_adjusted_status_results %>%
 ```
 Use this volcano plot as the compositionally aware reference analysis.
 
-The next plot ranks significant taxa by CLR effect size.
+The next plot shows CLR effect size on the x-axis and orders taxa by q-value.
 
 ```{r}
-# Bar chart of top significant taxa ranked by CLR effect size
+# Bar chart of top significant taxa ordered by q-value (CLR)
 bind_rows(
   clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -655,7 +660,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -719,7 +724,7 @@ all_methods_sig <- comparison_results %>%
 
 all_methods_sig
 ```
-These taxa are the strongest consensus candidates. Use [12. How to Read the Practical Results][wiki-read-results] for the interpretation checklist.
+These taxa are the strongest consensus candidates. Use [13. How to Read the Practical Results][wiki-read-results] for the interpretation checklist.
 
 The next scatter plot tests whether status adjustment changes the age-effect estimates.
 
@@ -864,9 +869,13 @@ comparison_results %>%
 ```
 Same-sign points indicate agreement between the simplest and most compositionally aware univariate methods.
 
-## Constrained ordination with RDA
+# Multivariate statistics
 
-Details: [11. Constrained Ordination with RDA][wiki-rda]. Build a gut-only CLR matrix and fit an RDA constrained by age and health status.
+These sections analyse all gut taxa jointly on the CLR scale. PCA is unconstrained; RDA is constrained by metadata.
+
+## PCA of CLR-transformed gut profiles
+
+Details: [11. PCA of CLR-Transformed Gut Profiles][wiki-pca]. Build a gut-only CLR matrix and inspect the largest unconstrained community gradients.
 
 ```{r}
 gut_clr_mat <- dat_clr %>%
@@ -878,6 +887,32 @@ gut_clr_mat <- dat_clr %>%
 
 gut_meta <- meta_clr[rownames(gut_clr_mat), ] %>% as("data.frame")
 
+gut_pca <- prcomp(gut_clr_mat, center = TRUE, scale. = FALSE)
+
+pca_scores <- as.data.frame(gut_pca$x[, 1:2]) %>%
+  rownames_to_column("sample_id") %>%
+  left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
+
+pca_var <- round(100 * gut_pca$sdev^2 / sum(gut_pca$sdev^2), 1)
+
+pca_scores %>%
+  ggplot(aes(x = PC1, y = PC2, color = age, shape = status)) +
+    geom_point(size = 3, alpha = 0.85) +
+    scale_color_manual(values = c("adult" = "#E74C3C", "infant" = "#3498DB")) +
+    scale_shape_manual(values = c("healthy" = 16, "sick" = 17)) +
+    labs(x = paste0("PC1 (", pca_var[1], "%)"),
+         y = paste0("PC2 (", pca_var[2], "%)"),
+         color = "Age", shape = "Status",
+         title = "PCA of gut microbiome CLR profiles") +
+    theme_bw()
+```
+Use PCA to see whether age or health status align with the strongest overall community gradients.
+
+## Constrained ordination with RDA
+
+Details: [12. Constrained Ordination with RDA][wiki-rda]. Fit an RDA on the gut CLR matrix constrained by age and health status.
+
+```{r}
 rda_age <- rda(gut_clr_mat ~ age + status, data = gut_meta)
 ```
 The sample order in `gut_meta` must match the rows of `gut_clr_mat`.
@@ -893,7 +928,14 @@ A significant age term supports a community-level age effect after accounting fo
 Extract RDA1 taxon scores to rank the taxa driving the primary constrained axis.
 
 ```{r}
-taxon_scores <- scores(rda_age, display = "species")[, 1]
+rda_site_scores_raw <- scores(rda_age, display = "sites")
+rda1_sign <- ifelse(
+  mean(rda_site_scores_raw[gut_meta$age == "adult", "RDA1"], na.rm = TRUE) >=
+    mean(rda_site_scores_raw[gut_meta$age == "infant", "RDA1"], na.rm = TRUE),
+  1, -1
+)
+
+taxon_scores <- scores(rda_age, display = "species")[, 1] * rda1_sign
 
 rda_taxa <- tibble(
   taxon = names(taxon_scores),
@@ -912,15 +954,18 @@ pct2 <- round(eig[2] / rda_age$tot.chi * 100, 1)
 
 site_scores <- scores(rda_age, display = "sites") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("sample_id") %>%
   left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
 
 biplot_scores <- scores(rda_age, display = "bp") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("variable")
 
 top_species_scores <- scores(rda_age, display = "species") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("taxon") %>%
   inner_join(rda_taxa %>% head(10), by = "taxon") %>%
   left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
@@ -982,4 +1027,50 @@ rda_taxa %>%
          title = "Top 20 taxa by RDA1 loading magnitude") +
     theme_bw()
 ```
-Compare these RDA drivers with the consensus taxa from the univariate methods. Use [12. How to Read the Practical Results][wiki-read-results] for the final interpretation.
+Compare these RDA drivers with the consensus taxa from the univariate methods.
+
+The final comparison links the multivariate RDA loadings to the CLR-based univariate age estimates.
+
+```{r}
+rda_clr_comparison <- rda_taxa %>%
+  left_join(
+    clr_age_adjusted_status_results %>%
+      select(taxon, genus, species,
+             clr_estimate = estimate,
+             clr_q = q_value),
+    by = "taxon"
+  ) %>%
+  mutate(
+    direction_agreement = sign(rda1_loading) == sign(clr_estimate),
+    clr_result = case_when(
+      clr_q < 0.05 & direction_agreement ~ "CLR significant, same direction",
+      clr_q < 0.05                      ~ "CLR significant, opposite direction",
+      TRUE                              ~ "CLR not significant"
+    )
+  )
+
+rda_clr_comparison %>%
+  ggplot(aes(x = clr_estimate, y = rda1_loading, color = clr_result)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_point(alpha = 0.65, size = 2) +
+    scale_color_manual(values = c(
+      "CLR significant, same direction"     = "#2E8B57",
+      "CLR significant, opposite direction" = "#E67E22",
+      "CLR not significant"                 = "grey70"
+    )) +
+    labs(x = "CLR age estimate (adult vs infant)",
+         y = "RDA1 loading (positive = adult side)",
+         color = NULL,
+         title = "RDA loadings vs CLR univariate age effects") +
+    theme_bw()
+```
+Points in the upper-right and lower-left quadrants agree in direction between RDA and CLR.
+
+```{r}
+rda_clr_comparison %>%
+  arrange(desc(abs(rda1_loading))) %>%
+  select(genus, species, rda1_loading, clr_estimate, clr_q, direction_agreement) %>%
+  head(20)
+```
+Use [13. How to Read the Practical Results][wiki-read-results] for the final interpretation.

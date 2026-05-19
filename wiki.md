@@ -2,9 +2,9 @@
 
 ## 📌 Overview
 
-In this practical you will analyse differential abundance patterns in microbiome data using an already assembled **phyloseq** object. The session builds directly on the preceding theory session: raw read counts must first be normalised, microbiome abundance values violate simple test assumptions, thousands of taxon-level tests require FDR correction, and relative abundances are compositional. The practical starts with basic data inspection and exploratory visualisation, then compares four increasingly sophisticated approaches for identifying taxa that differ between **infant** and **adult** gut microbiomes.
+In this practical you will analyse differential abundance patterns in microbiome data using an already assembled **phyloseq** object. The session builds directly on the preceding theory session: raw read counts must first be normalised, microbiome abundance values violate simple test assumptions, thousands of taxon-level tests require FDR correction, and relative abundances are compositional. The practical starts with basic data inspection and exploratory visualisation, then separates the statistical analysis into two blocks: **univariate statistics**, where taxa are tested one at a time, and **multivariate statistics**, where the gut community is analysed as a whole.
 
-The workflow has eight conceptual phases:
+The workflow has nine conceptual phases:
 
 1. **[Load and inspect the phyloseq object](#-1-load-and-inspect-the-data)**
 2. **[Understand read counts and choose an appropriate normalisation](#-2-visualise-community-composition)**
@@ -13,7 +13,8 @@ The workflow has eight conceptual phases:
 5. **[Test age-associated taxa with a Wilcoxon rank-sum test](#-5-wilcoxon-rank-sum-test)**
 6. **[Fit linear models](#-6-age-difference-using-log-transformed-linear-models) with and [without health-status adjustment](#-7-adjust-the-linear-model-for-health-status)**
 7. **[Control false discoveries](#-8-control-false-discoveries-with-fdr) and [account for compositionality](#-9-compositional-analysis-with-clr-transformation)**
-8. **[Use constrained ordination to identify community-level drivers](#-11-constrained-ordination-with-rda)**
+8. **[Compare the univariate differential-abundance methods](#-10-compare-differential-abundance-methods)**
+9. **[Use PCA](#-11-pca-of-clr-transformed-gut-profiles) and [RDA](#-12-constrained-ordination-with-rda) to inspect community-level structure**
 
 ---
 
@@ -93,7 +94,7 @@ Binder sessions are temporary. Any edits, rendered HTML files, or notes created 
 > ```
 
 > 💡 **Important**
-> Run the chunks in order. Several later analyses depend on objects created earlier, especially `dat_rel`, `wilcox_results`, `glm_age_results`, `glm_age_adjusted_status_results`, `dat_clr`, `clr_age_adjusted_status_results`, and `comparison_results`.
+> Run the chunks in order. Several later analyses depend on objects created earlier, especially `dat_rel`, `wilcox_results`, `glm_age_results`, `glm_age_adjusted_status_results`, `dat_clr`, `clr_age_adjusted_status_results`, `comparison_results`, `gut_clr_mat`, `gut_meta`, `gut_pca`, and `rda_age`.
 
 ---
 
@@ -380,6 +381,14 @@ Each row now represents one **sample-taxon combination**, with the taxon's relat
 
 > 💡 **Why long format?**
 > Long format is ideal for `dplyr` and `ggplot2`: it makes it easy to filter one taxon, group by taxon, split by age, and join taxonomic labels to statistical results.
+
+---
+
+## Part 1 — Univariate Statistics
+
+The first statistical block treats each taxon as its own response variable. This is the familiar differential-abundance framing: for each taxon, ask whether its abundance differs between infant and adult gut samples, then correct for the fact that many taxa are tested.
+
+Univariate tests are useful because they return concrete candidate taxa, effect sizes and q-values. Their limitation is that they do not directly model the gut microbiome as a coordinated community. That limitation is handled later in the multivariate block.
 
 ---
 
@@ -891,7 +900,7 @@ wilcox_results %>%
 The horizontal dashed line marks the `q_value = 0.05` threshold. Points above it pass the FDR threshold; points far from zero on the x-axis have larger estimated fold changes.
 
 ```r
-# Bar chart of top significant taxa ranked by effect size (Wilcoxon)
+# Bar chart of top significant taxa ordered by q-value (Wilcoxon)
 bind_rows(
   wilcox_results %>% filter(q_value < 0.05) %>% arrange(log2_fc) %>% head(10),
   wilcox_results %>% filter(q_value < 0.05) %>% arrange(-log2_fc) %>% head(10)
@@ -901,7 +910,7 @@ bind_rows(
     label = species,
     direction = ifelse(log2_fc > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, log2_fc), y = log2_fc, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = log2_fc, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -910,7 +919,7 @@ bind_rows(
     theme_bw()
 ```
 
-The bar chart removes non-significant taxa and ranks the largest significant effects in both directions. Use it as a readable shortlist, not as a replacement for checking the raw abundance plots.
+The bar chart removes non-significant taxa, shows effect size on the horizontal axis, and orders taxa by q-value. Use it as a readable shortlist, not as a replacement for checking the raw abundance plots.
 
 > ⚠️ **Limitation of the Wilcoxon test**
 > The Wilcoxon test treats every taxon independently, does not model additional covariates such as health status, and does not address the compositional structure of relative abundance data. The next sections address these limitations.
@@ -1091,7 +1100,7 @@ glm_age_results %>%
 ```
 
 ```r
-# Bar chart of top significant taxa ranked by effect size (GLM)
+# Bar chart of top significant taxa ordered by q-value (GLM)
 bind_rows(
   glm_age_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   glm_age_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -1101,7 +1110,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -1110,7 +1119,7 @@ bind_rows(
     theme_bw()
 ```
 
-The ranked GLM bar chart is useful for comparing which taxa remain prominent when abundance values, not just ranks, are modelled.
+The GLM bar chart is useful for comparing effect sizes among taxa ordered by statistical support.
 
 > 🧠 Discussion
 > Which taxa are found by both methods? Which taxa appear in one method only? Method-specific hits deserve closer inspection because they may be driven by zeros, outliers, or distributional assumptions.
@@ -1274,7 +1283,7 @@ glm_age_adjusted_status_results %>%
 Compare this volcano plot to the unadjusted GLM version. Taxa that move downward after adjustment have weaker age evidence once health status is accounted for.
 
 ```r
-# Bar chart of top significant taxa ranked by effect size (GLM adjusted)
+# Bar chart of top significant taxa ordered by q-value (GLM adjusted)
 bind_rows(
   glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   glm_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -1284,7 +1293,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -1293,7 +1302,7 @@ bind_rows(
     theme_bw()
 ```
 
-Taxa that stay large and significant after adjustment are stronger age-associated candidates than taxa that only appear in the unadjusted model.
+Taxa that stay large, significant and high-ranked by q-value after adjustment are stronger age-associated candidates than taxa that only appear in the unadjusted model.
 
 > 💡 **Key concept: confounding**
 > A confounder is a variable associated with both the predictor and the outcome. Adjusting for `status` helps separate age-associated microbial patterns from disease-associated microbial patterns.
@@ -1590,7 +1599,7 @@ clr_age_adjusted_status_results %>%
 Use this plot to identify taxa with both strong CLR effect sizes and FDR-supported age differences.
 
 ```r
-# Bar chart of top significant taxa ranked by CLR effect size
+# Bar chart of top significant taxa ordered by q-value (CLR)
 bind_rows(
   clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(estimate) %>% head(10),
   clr_age_adjusted_status_results %>% filter(q_value < 0.05) %>% arrange(-estimate) %>% head(10)
@@ -1600,7 +1609,7 @@ bind_rows(
     label = species,
     direction = ifelse(estimate > 0, "Adult-enriched", "Infant-enriched")
   ) %>%
-  ggplot(aes(x = reorder(label, estimate), y = estimate, fill = direction)) +
+  ggplot(aes(x = reorder(label, -q_value), y = estimate, fill = direction)) +
     geom_col() +
     coord_flip() +
     scale_fill_manual(values = c("Adult-enriched" = "#E74C3C", "Infant-enriched" = "#3498DB")) +
@@ -1609,7 +1618,7 @@ bind_rows(
     theme_bw()
 ```
 
-The CLR ranking is often the most useful single shortlist because it combines covariate adjustment with a compositional response scale.
+The CLR bar chart is often the most useful single shortlist because it combines covariate adjustment, q-value ordering and a compositional response scale.
 
 > 💡 **Why this is the most compositionally appropriate model in the practical**
 > The CLR model no longer treats raw relative abundances as independent absolute measurements. Instead, it models each taxon relative to the whole-community geometric mean. Distances in CLR space correspond to Aitchison distance, the standard geometry for compositional data.
@@ -1763,7 +1772,7 @@ all_methods_sig
 Taxa significant across all four methods are the strongest candidates for robust age-associated microbes in this dataset.
 
 > 🧠 Discussion
-> Do the taxa significant in all methods make biological sense? Are they enriched in the expected age group? Do they also appear among the strongest RDA loadings later?
+> Do the taxa significant in all methods make biological sense? Are they enriched in the expected age group? Do they align with the PCA/RDA community patterns later?
 
 ---
 
@@ -1932,14 +1941,29 @@ Points in the same-sign quadrants agree on enrichment direction. Points with opp
 
 ---
 
-## 🧭 11. Constrained Ordination with RDA
+## Part 2 — Multivariate Statistics
 
-The univariate tests above analyse one taxon at a time. Microbiomes are communities, so the practical ends with a multivariate method: **redundancy analysis (RDA)**.
+The second statistical block stops treating taxa as isolated response variables. Instead, each sample is represented by its whole gut community profile: one row per sample and one column per taxon.
 
-RDA asks whether the whole community composition is structured by explanatory variables such as `age` and `status`.
+This block uses the same CLR-transformed abundances as the compositional univariate model, but asks a different kind of question:
+
+| Method | Question | Metadata used to build axes? |
+| --- | --- | --- |
+| PCA | What are the strongest overall community gradients? | No |
+| RDA | How much community structure is explained by selected predictors? | Yes |
+
+PCA is therefore a useful bridge into RDA. It shows the largest unconstrained patterns first, then RDA asks whether `age` and `status` explain a statistically detectable part of the same community-level variation.
 
 > 💡 **Alpha vs beta/community-level analyses**
-> Alpha diversity asks how rich or even one sample is and returns one value per sample. Beta diversity asks how different samples are from each other and works with distances or ordination. RDA belongs to the second family: it tests whether whole-community structure aligns with metadata.
+> Alpha diversity asks how rich or even one sample is and returns one value per sample. Beta diversity asks how different samples are from each other and works with distances or ordination. PCA and RDA belong to the second family: they analyse whole-community structure across samples.
+
+---
+
+## 🧭 11. PCA of CLR-Transformed Gut Profiles
+
+PCA can be run on CLR-transformed microbiome data. This is often described as **Aitchison PCA**, because Euclidean distances in CLR space correspond to Aitchison geometry for compositional data.
+
+Here PCA is used as an unconstrained ordination. It does not know which samples are infants, adults, healthy or sick when it constructs the axes. Those metadata variables are added only afterwards for plotting.
 
 ### 🔹 Step 1 — Build the CLR community matrix
 
@@ -1958,9 +1982,9 @@ gut_meta <- meta_clr[rownames(gut_clr_mat), ] %>% as("data.frame")
 <summary>Annotated code</summary>
 
 ```r
-# Build the community matrix used as the RDA response.
+# Build the community matrix used as the PCA/RDA response.
 gut_clr_mat <- dat_clr %>%
-  # RDA is focused on gut samples in this practical.
+  # The multivariate analyses are focused on gut samples in this practical.
   filter(body_site == "gut") %>%
   # Keep only the sample identifier, taxon identifier, and CLR abundance.
   select(sample_id, taxon, clr) %>%
@@ -1968,7 +1992,7 @@ gut_clr_mat <- dat_clr %>%
   pivot_wider(names_from = taxon, values_from = clr) %>%
   # Move sample IDs into row names because vegan ordination functions expect row names.
   column_to_rownames("sample_id") %>%
-  # Convert the data frame to a numeric matrix for RDA.
+  # Convert the data frame to a numeric matrix for PCA and RDA.
   as.matrix()
 
 # Reorder the metadata so its rows match the sample order in the community matrix.
@@ -1977,14 +2001,89 @@ gut_meta <- meta_clr[rownames(gut_clr_mat), ] %>% as("data.frame")
 
 </details>
 
-RDA needs:
+PCA and RDA both need:
 
 - a response matrix with samples as rows and taxa as columns,
 - a metadata table with the same samples in the same order.
 
 ---
 
-### 🔹 Step 2 — Fit the constrained ordination
+### 🔹 Step 2 — Run PCA
+
+```r
+gut_pca <- prcomp(gut_clr_mat, center = TRUE, scale. = FALSE)
+
+pca_scores <- as.data.frame(gut_pca$x[, 1:2]) %>%
+  rownames_to_column("sample_id") %>%
+  left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
+
+pca_var <- round(100 * gut_pca$sdev^2 / sum(gut_pca$sdev^2), 1)
+
+pca_scores %>%
+  ggplot(aes(x = PC1, y = PC2, color = age, shape = status)) +
+    geom_point(size = 3, alpha = 0.85) +
+    scale_color_manual(values = c("adult" = "#E74C3C", "infant" = "#3498DB")) +
+    scale_shape_manual(values = c("healthy" = 16, "sick" = 17)) +
+    labs(x = paste0("PC1 (", pca_var[1], "%)"),
+         y = paste0("PC2 (", pca_var[2], "%)"),
+         color = "Age", shape = "Status",
+         title = "PCA of gut microbiome CLR profiles") +
+    theme_bw()
+```
+
+<details>
+<summary>Annotated code</summary>
+
+```r
+# Fit PCA to the gut CLR matrix.
+gut_pca <- prcomp(gut_clr_mat, center = TRUE, scale. = FALSE)
+
+# Extract the first two principal-component scores for plotting.
+pca_scores <- as.data.frame(gut_pca$x[, 1:2]) %>%
+  rownames_to_column("sample_id") %>%
+  # Add age and status only after PCA has been fitted.
+  left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
+
+# Calculate the percentage of total variance explained by each PC.
+pca_var <- round(100 * gut_pca$sdev^2 / sum(gut_pca$sdev^2), 1)
+
+# Plot samples in the first two PCA axes and colour them by metadata.
+pca_scores %>%
+  ggplot(aes(x = PC1, y = PC2, color = age, shape = status)) +
+    geom_point(size = 3, alpha = 0.85) +
+    scale_color_manual(values = c("adult" = "#E74C3C", "infant" = "#3498DB")) +
+    scale_shape_manual(values = c("healthy" = 16, "sick" = 17)) +
+    labs(x = paste0("PC1 (", pca_var[1], "%)"),
+         y = paste0("PC2 (", pca_var[2], "%)"),
+         color = "Age", shape = "Status",
+         title = "PCA of gut microbiome CLR profiles") +
+    theme_bw()
+```
+
+</details>
+
+Use the PCA plot as a first multivariate check:
+
+| Pattern in PCA | Interpretation |
+| --- | --- |
+| Infants and adults separate along PC1 or PC2 | Age is one of the dominant community gradients |
+| Healthy and sick samples separate | Health status is one of the dominant community gradients |
+| Metadata groups overlap strongly | The strongest overall variation may be driven by other factors |
+
+If age or status are not visually dominant in PCA, they may still explain a smaller but consistent fraction of community structure. That is exactly the situation where RDA is useful.
+
+> ⚠️ **Why `scale. = FALSE`?**
+> Scaling each taxon to unit variance can make very rare or noisy taxa contribute as much as abundant stable taxa. For a first CLR-PCA in this practical, the analysis keeps taxa on their CLR scale.
+
+---
+
+## 🧭 12. Constrained Ordination with RDA
+
+RDA is the constrained counterpart to PCA. PCA finds axes that explain as much total community variance as possible. RDA finds axes that explain as much community variance as possible **using only the predictors in the model formula**.
+
+Here RDA asks whether the whole gut community composition is structured by `age` and `status`.
+
+### 🔹 Step 1 — Fit the constrained ordination
 
 ```r
 rda_age <- rda(gut_clr_mat ~ age + status, data = gut_meta)
@@ -2002,12 +2101,9 @@ rda_age <- rda(gut_clr_mat ~ age + status, data = gut_meta)
 
 This model constrains the ordination axes to combinations of `age` and `status`. In other words, the plot is not just describing total community variation; it is specifically showing the part of the variation explained by the predictors in the formula.
 
-> 🧠 **PCA vs RDA**
-> PCA finds the directions of greatest overall variance. RDA finds the directions of community variance that are best explained by the predictors in the model formula.
-
 ---
 
-### 🔹 Step 3 — Test the model with permutation ANOVA
+### 🔹 Step 2 — Test the model with permutation ANOVA
 
 ```r
 anova(rda_age, permutations = 999)
@@ -2034,10 +2130,17 @@ The first test asks whether the overall constrained model explains more communit
 
 ---
 
-### 🔹 Step 4 — Extract taxa driving the primary RDA axis
+### 🔹 Step 3 — Extract taxa driving the primary RDA axis
 
 ```r
-taxon_scores <- scores(rda_age, display = "species")[, 1]
+rda_site_scores_raw <- scores(rda_age, display = "sites")
+rda1_sign <- ifelse(
+  mean(rda_site_scores_raw[gut_meta$age == "adult", "RDA1"], na.rm = TRUE) >=
+    mean(rda_site_scores_raw[gut_meta$age == "infant", "RDA1"], na.rm = TRUE),
+  1, -1
+)
+
+taxon_scores <- scores(rda_age, display = "species")[, 1] * rda1_sign
 
 rda_taxa <- tibble(
   taxon = names(taxon_scores),
@@ -2050,8 +2153,18 @@ rda_taxa <- tibble(
 <summary>Annotated code</summary>
 
 ```r
-# Extract taxon scores from the first RDA axis.
-taxon_scores <- scores(rda_age, display = "species")[, 1]
+# Extract sample scores to decide which end of RDA1 points toward adult samples.
+rda_site_scores_raw <- scores(rda_age, display = "sites")
+
+# RDA axis signs are arbitrary, so orient RDA1 to make positive values point toward adults.
+rda1_sign <- ifelse(
+  mean(rda_site_scores_raw[gut_meta$age == "adult", "RDA1"], na.rm = TRUE) >=
+    mean(rda_site_scores_raw[gut_meta$age == "infant", "RDA1"], na.rm = TRUE),
+  1, -1
+)
+
+# Extract taxon scores from the first RDA axis and apply the same orientation.
+taxon_scores <- scores(rda_age, display = "species")[, 1] * rda1_sign
 
 # Turn the named score vector into a tidy table.
 rda_taxa <- tibble(
@@ -2066,11 +2179,11 @@ rda_taxa <- tibble(
 
 </details>
 
-Taxa with large absolute RDA1 loadings contribute most strongly to the primary constrained axis. Positive and negative loadings point toward opposite ends of the community gradient.
+Taxa with large absolute RDA1 loadings contribute most strongly to the primary constrained axis. Because RDA axis signs are arbitrary, the code orients RDA1 so that positive values point toward adult samples and negative values point toward infant samples.
 
 ---
 
-### 🔹 Step 5 — Interpret the RDA biplot
+### 🔹 Step 4 — Interpret the RDA biplot
 
 The Rmd builds a biplot with:
 
@@ -2096,15 +2209,18 @@ pct2 <- round(eig[2] / rda_age$tot.chi * 100, 1)
 
 site_scores <- scores(rda_age, display = "sites") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("sample_id") %>%
   left_join(gut_meta %>% rownames_to_column("sample_id"), by = "sample_id")
 
 biplot_scores <- scores(rda_age, display = "bp") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("variable")
 
 top_species_scores <- scores(rda_age, display = "species") %>%
   as.data.frame() %>%
+  mutate(RDA1 = RDA1 * rda1_sign) %>%
   rownames_to_column("taxon") %>%
   inner_join(rda_taxa %>% head(10), by = "taxon") %>%
   left_join(tax_clr %>% rownames_to_column("taxon"), by = "taxon") %>%
@@ -2170,22 +2286,130 @@ rda_taxa %>%
 
 This bar chart is easier to read than the biplot when the goal is simply to identify which taxa drive the first constrained axis.
 
+---
+
+### 🔹 Step 5 — Compare RDA loadings with CLR univariate effects
+
+The CLR univariate model and the RDA model use the same transformed abundance scale, but they summarise different things:
+
+| Output | Meaning |
+| --- | --- |
+| CLR age estimate | One taxon's adjusted adult-vs-infant difference |
+| CLR q-value | Evidence that the taxon's individual age effect is non-zero |
+| RDA1 loading | How strongly the taxon contributes to the main constrained community gradient |
+
+This means the two outputs should be compared by **direction and ranking**, not by expecting identical numeric values.
+
+```r
+rda_clr_comparison <- rda_taxa %>%
+  left_join(
+    clr_age_adjusted_status_results %>%
+      select(taxon, genus, species,
+             clr_estimate = estimate,
+             clr_q = q_value),
+    by = "taxon"
+  ) %>%
+  mutate(
+    direction_agreement = sign(rda1_loading) == sign(clr_estimate),
+    clr_result = case_when(
+      clr_q < 0.05 & direction_agreement ~ "CLR significant, same direction",
+      clr_q < 0.05                      ~ "CLR significant, opposite direction",
+      TRUE                              ~ "CLR not significant"
+    )
+  )
+
+rda_clr_comparison %>%
+  ggplot(aes(x = clr_estimate, y = rda1_loading, color = clr_result)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_point(alpha = 0.65, size = 2) +
+    scale_color_manual(values = c(
+      "CLR significant, same direction"     = "#2E8B57",
+      "CLR significant, opposite direction" = "#E67E22",
+      "CLR not significant"                 = "grey70"
+    )) +
+    labs(x = "CLR age estimate (adult vs infant)",
+         y = "RDA1 loading (positive = adult side)",
+         color = NULL,
+         title = "RDA loadings vs CLR univariate age effects") +
+    theme_bw()
+```
+
+<details>
+<summary>Annotated code</summary>
+
+```r
+# Join the RDA taxon loadings to the CLR univariate model results.
+rda_clr_comparison <- rda_taxa %>%
+  left_join(
+    clr_age_adjusted_status_results %>%
+      select(taxon, genus, species,
+             clr_estimate = estimate,
+             clr_q = q_value),
+    by = "taxon"
+  ) %>%
+  mutate(
+    # Compare whether the RDA loading and CLR age estimate point in the same direction.
+    direction_agreement = sign(rda1_loading) == sign(clr_estimate),
+    # Separate significant CLR hits by whether they agree with the RDA direction.
+    clr_result = case_when(
+      clr_q < 0.05 & direction_agreement ~ "CLR significant, same direction",
+      clr_q < 0.05                      ~ "CLR significant, opposite direction",
+      TRUE                              ~ "CLR not significant"
+    )
+  )
+
+# Plot univariate CLR effects against multivariate RDA1 loadings.
+rda_clr_comparison %>%
+  ggplot(aes(x = clr_estimate, y = rda1_loading, color = clr_result)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_point(alpha = 0.65, size = 2) +
+    scale_color_manual(values = c(
+      "CLR significant, same direction"     = "#2E8B57",
+      "CLR significant, opposite direction" = "#E67E22",
+      "CLR not significant"                 = "grey70"
+    )) +
+    labs(x = "CLR age estimate (adult vs infant)",
+         y = "RDA1 loading (positive = adult side)",
+         color = NULL,
+         title = "RDA loadings vs CLR univariate age effects") +
+    theme_bw()
+```
+
+</details>
+
+Points in the upper-right and lower-left quadrants agree in direction between RDA and CLR. Points in the other two quadrants suggest that a taxon contributes to the community gradient in a direction that does not match its individual adjusted age effect.
+
+Finally, inspect the strongest RDA taxa together with their CLR model estimates and q-values.
+
+```r
+rda_clr_comparison %>%
+  arrange(desc(abs(rda1_loading))) %>%
+  select(genus, species, rda1_loading, clr_estimate, clr_q, direction_agreement) %>%
+  head(20)
+```
+
+Taxa with large RDA loadings, significant CLR q-values, and matching directions are especially coherent candidates. Taxa with large RDA loadings but non-significant CLR q-values may still contribute to a multivariate community pattern, but they are weaker individual differential-abundance candidates.
+
 > 🧠 Discussion
-> Do the top RDA taxa overlap with the taxa significant in all four univariate methods? Agreement between the RDA loadings and the differential abundance tests gives stronger evidence that those taxa are genuine drivers of the infant-adult gut microbiome difference.
+> Do the top RDA taxa overlap with the taxa significant in the CLR model? Are the directions consistent? Agreement between RDA loadings and CLR age estimates gives stronger evidence that those taxa are genuine drivers of the infant-adult gut microbiome difference.
 
 ---
 
-## 📊 12. How to Read the Practical Results
+## 📊 13. How to Read the Practical Results
 
 The practical deliberately shows several methods because differential abundance analysis is sensitive to assumptions. Use the following hierarchy when interpreting results:
 
 | Evidence level | Interpretation |
 | --- | --- |
 | Significant in all four methods, same direction | Strong candidate age-associated taxon |
+| Large RDA1 loading and significant CLR estimate, same direction | Strong candidate taxon driving the community-level age gradient |
 | Significant in adjusted GLM and CLR, same direction | Good candidate, especially if biologically plausible |
 | Significant before but not after status adjustment | Possible confounding by health status |
 | Significant only in Wilcoxon | May reflect rank differences, zero patterns, or outliers |
 | Significant only in CLR | May reflect compositional effects hidden in relative abundance |
+| Large RDA1 loading but non-significant CLR estimate | Possible community-structure contributor, but weak individual differential-abundance evidence |
 | Opposite directions across methods | Do not interpret without deeper inspection |
 
 > ⚠️ **Avoid over-interpreting p-values**
@@ -2203,7 +2427,7 @@ Use these questions while going through the Rmd:
 4. Which taxa change most after adjusting for health status?
 5. Does the CLR model change the direction or significance of any major taxa?
 6. Which taxa are significant across all four methods?
-7. Do the strongest RDA loadings support the same biological story as the univariate tests?
+7. Do PCA, RDA and the RDA-vs-CLR comparison support the same biological story as the univariate tests?
 8. Which results would you trust most, and why?
 
 ---
@@ -2217,8 +2441,10 @@ By the end of the practical, keep a record of:
 - the `all_methods_sig` table,
 - the top infant- and adult-enriched taxa from each method,
 - the method-comparison heatmap,
+- the PCA plot,
 - the RDA biplot and top RDA loading bar chart,
+- the RDA-vs-CLR comparison plot and top-loading comparison table,
 - a short written interpretation of which taxa are most robustly associated with infant vs adult gut microbiomes.
 
 > 📂 **Suggested interpretation note**
-> Write 5-10 lines summarising the biological conclusion. Focus on taxa that are consistent across methods, explain whether health-status adjustment changed the result, and state whether the CLR/RDA analyses support the same conclusion.
+> Write 5-10 lines summarising the biological conclusion. Focus on taxa that are consistent across methods, explain whether health-status adjustment changed the result, and state whether the CLR/PCA/RDA analyses support the same conclusion.
